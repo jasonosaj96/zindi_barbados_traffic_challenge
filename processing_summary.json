@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-11-26T21:04:35.617355",
+  "total": 2,
+  "successful": 2,
+  "failed": 0,
+  "results": [
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-08-59-45.mp4",
+      "worker": "SpawnPoolWorker-1",
+      "success": true,
+      "duration": 39.64435005187988,
+      "error": null
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-09-00-45.mp4",
+      "worker": "SpawnPoolWorker-2",
+      "success": true,
+      "duration": 39.81474494934082,
+      "error": null
+    }
+  ]
+}
