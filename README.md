@@ -111,7 +111,7 @@ chmod +x *.sh
 
 **Full automated pipeline:**
 ```bash
-./automated_pipeline.sh --max-files 10 --save-video
+./automation_scripts/automated_pipeline.sh --max-files 10 --save-video
 ```
 
 This will:
@@ -368,7 +368,7 @@ Saved alongside each video:
 ./quick_test.sh
 
 # Full pipeline with custom settings
-./automated_pipeline.sh \
+./automation_scripts/automated_pipeline.sh \
     --dataset small \
     --cameras all \
     --max-files 50 \

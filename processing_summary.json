@@ -1,24 +1,88 @@
 {
-  "timestamp": "2025-11-26T21:21:28.330887",
-  "total": 2,
-  "successful": 2,
+  "timestamp": "2025-11-26T22:54:28.602345",
+  "total": 10,
+  "successful": 10,
   "failed": 0,
   "results": [
     {
       "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-08-59-45.mp4",
-      "worker": "SpawnPoolWorker-1",
+      "worker": "SpawnPoolWorker-2",
       "success": true,
-      "duration": 40.6709189414978,
+      "duration": 55.78250503540039,
       "error": null,
-      "has_metrics": true
+      "has_metrics": false
     },
     {
       "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-09-00-45.mp4",
+      "worker": "SpawnPoolWorker-1",
+      "success": true,
+      "duration": 55.7821581363678,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-11-44-45.mp4",
+      "worker": "SpawnPoolWorker-3",
+      "success": true,
+      "duration": 57.69103288650513,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-11-45-45.mp4",
+      "worker": "SpawnPoolWorker-4",
+      "success": true,
+      "duration": 57.45703196525574,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-14-40-45.mp4",
       "worker": "SpawnPoolWorker-2",
       "success": true,
-      "duration": 40.67123103141785,
+      "duration": 58.709410190582275,
       "error": null,
-      "has_metrics": true
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-20-14-41-45.mp4",
+      "worker": "SpawnPoolWorker-1",
+      "success": true,
+      "duration": 58.7391791343689,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-21-07-39-45.mp4",
+      "worker": "SpawnPoolWorker-4",
+      "success": true,
+      "duration": 55.349355936050415,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-21-07-40-45.mp4",
+      "worker": "SpawnPoolWorker-3",
+      "success": true,
+      "duration": 55.86417484283447,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-21-10-16-45.mp4",
+      "worker": "SpawnPoolWorker-4",
+      "success": true,
+      "duration": 40.74669098854065,
+      "error": null,
+      "has_metrics": false
+    },
+    {
+      "video": "video_processed_files/normanniles1/normanniles1_2025-10-21-10-17-45.mp4",
+      "worker": "SpawnPoolWorker-3",
+      "success": true,
+      "duration": 40.27131199836731,
+      "error": null,
+      "has_metrics": false
     }
   ]
 }

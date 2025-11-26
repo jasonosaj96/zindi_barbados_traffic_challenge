@@ -133,7 +133,7 @@ echo "Step 2: Downloading data from Google Cloud Storage"
 echo "========================================================================"
 echo ""
 
-DOWNLOAD_CMD="python download_and_process.py --dataset $DATASET --cameras $CAMERAS --output-dir $OUTPUT_DIR --download-only"
+DOWNLOAD_CMD="python src/processes/download_and_process.py --dataset $DATASET --cameras $CAMERAS --output-dir $OUTPUT_DIR --download-only"
 
 if [ -n "$MAX_FILES" ]; then
     DOWNLOAD_CMD="$DOWNLOAD_CMD --max-files $MAX_FILES"
@@ -212,7 +212,7 @@ echo "Step 4: Processing videos with YOLOv8n"
 echo "========================================================================"
 echo ""
 
-PROCESS_CMD="python parallel_process.py --workers $WORKERS --data-dir $OUTPUT_DIR"
+PROCESS_CMD="python src/processes/parallel_process.py --workers $WORKERS --data-dir $OUTPUT_DIR"
 
 if [ "$CAMERAS" != "all" ]; then
     PROCESS_CMD="$PROCESS_CMD --cameras $CAMERAS"
