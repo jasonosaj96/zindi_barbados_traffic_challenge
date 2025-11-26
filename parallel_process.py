@@ -13,11 +13,13 @@ Usage:
 import argparse
 import multiprocessing as mp
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import subprocess
 import json
 import time
 from datetime import datetime
+import sys
+import threading
 
 
 class ParallelProcessor:
@@ -30,12 +32,18 @@ class ParallelProcessor:
         4: 'normanniles4'
     }
 
-    def __init__(self, data_dir='video_processed_files', workers=None, save_video=False):
+    def __init__(self, data_dir='video_processed_files', workers=None, save_video=False, 
+                 auto_metrics=True, resume=False):
         self.data_dir = Path(data_dir)
         self.workers = workers or max(1, mp.cpu_count() - 1)
         self.save_video = save_video
+        self.auto_metrics = auto_metrics
+        self.resume = resume
+        self.progress_lock = threading.Lock()
+        self.completed_count = 0
+        self.total_count = 0
 
-    def find_videos(self, cameras: Optional[List[int]] = None) -> List[Path]:
+    def find_videos(self, cameras: Optional[List[int]] = None) -> Tuple[List[Path], List[Path]]:
         """Find all video files in data directory"""
         videos = []
 
@@ -54,15 +62,22 @@ class ParallelProcessor:
             for pattern in ['**/*.mp4', '**/*.avi', '**/*.mov']:
                 videos.extend(self.data_dir.glob(pattern))
 
-        # Filter out already processed videos
+        # Filter based on processing status
         unprocessed = []
+        needs_metrics = []
+        
         for video in videos:
-            # Check if output files already exist
             counts_file = video.with_suffix('.counts.json')
+            metrics_file = video.with_suffix('.metrics.json')
+            
             if not counts_file.exists():
+                # Needs full processing
                 unprocessed.append(video)
+            elif self.auto_metrics and not metrics_file.exists():
+                # Has counts but needs metrics
+                needs_metrics.append(video)
 
-        return sorted(unprocessed)
+        return sorted(unprocessed), sorted(needs_metrics)
 
     def get_camera_config(self, video_path: Path) -> Optional[Path]:
         """Determine which camera config to use for a video"""
@@ -74,7 +89,8 @@ class ParallelProcessor:
         return None
 
     @staticmethod
-    def process_single_video(video_path: Path, config_path: Optional[Path], save_video: bool = False) -> dict:
+    def process_single_video(video_path: Path, config_path: Optional[Path], 
+                           save_video: bool = False, progress_callback=None) -> dict:
         """Process a single video (worker function)"""
         start_time = time.time()
         worker_name = mp.current_process().name
@@ -84,7 +100,8 @@ class ParallelProcessor:
             'worker': worker_name,
             'success': False,
             'duration': 0,
-            'error': None
+            'error': None,
+            'has_metrics': False
         }
 
         try:
@@ -108,7 +125,12 @@ class ParallelProcessor:
 
             if proc_result.returncode == 0:
                 result['success'] = True
+                # Check if metrics were generated
+                metrics_file = video_path.with_suffix('.metrics.json')
+                result['has_metrics'] = metrics_file.exists()
                 print(f"[{worker_name}] ✓ Completed: {video_path.name}")
+                if result['has_metrics']:
+                    print(f"[{worker_name}]   • Metrics generated")
             else:
                 result['error'] = proc_result.stderr[:200]
                 print(f"[{worker_name}] ✗ Failed: {video_path.name}")
@@ -122,6 +144,52 @@ class ParallelProcessor:
 
         result['duration'] = time.time() - start_time
         return result
+    
+    @staticmethod
+    def generate_metrics_for_video(video_path: Path) -> dict:
+        """Generate roundabout metrics for an already processed video"""
+        start_time = time.time()
+        worker_name = mp.current_process().name
+        
+        result = {
+            'video': str(video_path),
+            'worker': worker_name,
+            'success': False,
+            'duration': 0,
+            'error': None
+        }
+        
+        try:
+            counts_file = video_path.with_suffix('.counts.json')
+            if not counts_file.exists():
+                result['error'] = "Counts file not found"
+                return result
+            
+            print(f"[{worker_name}] Generating metrics: {video_path.name}")
+            
+            cmd = ['python', 'roundabout_metrics.py', str(counts_file)]
+            
+            proc_result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60  # 1 minute timeout for metrics
+            )
+            
+            if proc_result.returncode == 0:
+                result['success'] = True
+                print(f"[{worker_name}] ✓ Metrics generated: {video_path.name}")
+            else:
+                result['error'] = proc_result.stderr[:200]
+                print(f"[{worker_name}] ✗ Metrics failed: {video_path.name}")
+        
+        except subprocess.TimeoutExpired:
+            result['error'] = "Metrics timeout"
+        except Exception as e:
+            result['error'] = str(e)
+        
+        result['duration'] = time.time() - start_time
+        return result
 
     def process_videos(self, videos: List[Path]) -> List[dict]:
         """Process multiple videos in parallel"""
@@ -129,11 +197,15 @@ class ParallelProcessor:
             print("No videos to process")
             return []
 
+        self.total_count = len(videos)
+        self.completed_count = 0
+
         print(f"\n{'=' * 70}")
         print(f"Parallel Video Processing")
         print(f"{'=' * 70}")
         print(f"Videos to process: {len(videos)}")
         print(f"Workers: {self.workers}")
+        print(f"Auto-generate metrics: {self.auto_metrics}")
         print(f"{'=' * 70}\n")
 
         # Prepare tasks
@@ -146,6 +218,23 @@ class ParallelProcessor:
         with mp.Pool(processes=self.workers) as pool:
             results = pool.starmap(self.process_single_video, tasks)
 
+        return results
+    
+    def generate_metrics_batch(self, videos: List[Path]) -> List[dict]:
+        """Generate metrics for multiple videos in parallel"""
+        if not videos:
+            return []
+        
+        print(f"\n{'=' * 70}")
+        print(f"Generating Roundabout Metrics")
+        print(f"{'=' * 70}")
+        print(f"Videos: {len(videos)}")
+        print(f"Workers: {self.workers}")
+        print(f"{'=' * 70}\n")
+        
+        with mp.Pool(processes=self.workers) as pool:
+            results = pool.map(self.generate_metrics_for_video, videos)
+        
         return results
 
     def print_summary(self, results: List[dict]):
@@ -188,6 +277,31 @@ class ParallelProcessor:
             }, f, indent=2)
 
         print(f"📄 Summary saved to: {summary_file}")
+    
+    def run_batch_analysis(self, camera: Optional[int] = None):
+        """Run batch roundabout metrics analysis"""
+        print(f"\n{'=' * 70}")
+        print("Running Batch Roundabout Analysis")
+        print(f"{'=' * 70}\n")
+        
+        try:
+            cmd = ['python', 'analyze_roundabout_metrics.py', 
+                   '--data-dir', str(self.data_dir),
+                   '--output', 'batch_roundabout_analysis.json',
+                   '--print-summary']
+            
+            if camera:
+                cmd.extend(['--camera', str(camera)])
+            
+            result = subprocess.run(cmd, timeout=300)
+            
+            if result.returncode == 0:
+                print(f"\n✓ Batch analysis complete")
+            else:
+                print(f"\n⚠️  Batch analysis encountered issues")
+        
+        except Exception as e:
+            print(f"\n⚠️  Could not run batch analysis: {e}")
 
 
 def main():
@@ -225,6 +339,24 @@ def main():
         action='store_true',
         help='Save annotated videos with detections and zones drawn'
     )
+    
+    parser.add_argument(
+        '--no-metrics',
+        action='store_true',
+        help='Skip automatic roundabout metrics generation'
+    )
+    
+    parser.add_argument(
+        '--resume',
+        action='store_true',
+        help='Resume processing (generate metrics for videos with counts but no metrics)'
+    )
+    
+    parser.add_argument(
+        '--batch-analysis',
+        action='store_true',
+        help='Run batch analysis after processing'
+    )
 
     args = parser.parse_args()
 
@@ -241,20 +373,50 @@ def main():
     processor = ParallelProcessor(
         data_dir=args.data_dir,
         workers=args.workers,
-        save_video=args.save_video
+        save_video=args.save_video,
+        auto_metrics=not args.no_metrics,
+        resume=args.resume
     )
 
     # Find videos
-    videos = processor.find_videos(cameras)
+    videos, needs_metrics = processor.find_videos(cameras)
+    
+    # Handle resume mode
+    if args.resume and needs_metrics:
+        print(f"\n📊 Resume Mode: Found {len(needs_metrics)} videos needing metrics")
+        
+        if needs_metrics:
+            print("\nVideos needing metrics:")
+            for i, video in enumerate(needs_metrics[:10], 1):
+                print(f"  {i}. {video.name}")
+            if len(needs_metrics) > 10:
+                print(f"  ... and {len(needs_metrics) - 10} more")
+            
+            response = input(f"\nGenerate metrics for {len(needs_metrics)} videos? (y/n): ")
+            if response.lower() == 'y':
+                start_time = time.time()
+                metrics_results = processor.generate_metrics_batch(needs_metrics)
+                metrics_time = time.time() - start_time
+                
+                successful = sum(1 for r in metrics_results if r['success'])
+                print(f"\n✓ Generated metrics for {successful}/{len(needs_metrics)} videos")
+                print(f"⏱️  Time: {metrics_time:.1f}s")
 
     if not videos:
         print("✓ No unprocessed videos found")
+        
+        # Run batch analysis if requested
+        if args.batch_analysis:
+            camera_num = cameras[0] if cameras and len(cameras) == 1 else None
+            processor.run_batch_analysis(camera_num)
         return
 
     if args.max_videos:
         videos = videos[:args.max_videos]
 
-    print(f"Found {len(videos)} unprocessed videos")
+    print(f"\nFound {len(videos)} unprocessed videos")
+    if needs_metrics:
+        print(f"Found {len(needs_metrics)} videos needing metrics (use --resume to generate)")
 
     # Confirm processing
     print("\nVideos to process:")
@@ -277,6 +439,11 @@ def main():
     processor.print_summary(results)
 
     print(f"⏱️  Total wall time: {total_time:.1f}s ({total_time/60:.1f}m)")
+    
+    # Run batch analysis if requested
+    if args.batch_analysis:
+        camera_num = cameras[0] if cameras and len(cameras) == 1 else None
+        processor.run_batch_analysis(camera_num)
 
 
 if __name__ == "__main__":

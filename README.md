@@ -524,3 +524,14 @@ This project is for the Zindi Barbados Traffic Challenge.
 Adjust polygon zones in `camera_configs/*.json` to match your specific camera angles and road layouts.
 
 
+# Process videos with automatic metrics generation
+python parallel_process.py --cameras 1 --workers 4
+
+# Resume and generate missing metrics
+python parallel_process.py --resume --cameras 1
+
+# Process with batch analysis at the end
+python parallel_process.py --cameras 1 --batch-analysis
+
+# Skip automatic metrics (faster, manual metrics later)
+python parallel_process.py --cameras 1 --no-metrics
