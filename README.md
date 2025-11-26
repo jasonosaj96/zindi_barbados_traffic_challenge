@@ -12,6 +12,150 @@ This project processes roundabout traffic videos from 4 cameras (Norman Niles #1
 - 📊 **Enhanced statistics** - mean, median, min, max dwell times per zone
 - 🔄 **Directional flow analysis** - understand traffic movement patterns
 
+
+## Challenge: AI-Powered Traffic Congestion Prediction
+
+### Problem Statement
+
+This is a **computer vision + time series forecasting** challenge focused on predicting traffic congestion at the Norman Niles roundabout in Barbados. The problem combines automated feature extraction from video data with real-time congestion prediction.
+
+**Business Context**: Barbados relies heavily on cars, buses, and taxis for transportation. The Ministry of Transport and Works seeks machine learning solutions to predict and mitigate traffic congestion, improving mobility for all citizens.
+
+### The Machine Learning Task
+
+This is a **multi-class classification problem** with temporal constraints:
+
+**Input**:
+- 4 synchronized video streams (1 per roundabout entrance/exit)
+- 15 minutes of historical video data
+- Each video segment: ~1 minute duration
+
+**Output**:
+- Predict congestion levels for 6 future time windows (minutes 18-23)
+- 8 predictions per time window (4 cameras × 2 directions: enter/exit)
+- 4 congestion classes: `["free flowing", "light delay", "moderate delay", "heavy delay"]`
+
+**Temporal Structure**:
+```
+[Minutes 1-15: Input Videos] → [Minutes 16-17: Processing Embargo] → [Minutes 18-23: Prediction Target]
+```
+
+### Technical Constraints
+
+1. **No Future Data Leakage**: Solutions must operate in real-time
+   - Cannot use data from minute N+1 to predict minute N
+   - Sequential prediction only (no look-ahead)
+   - No back-propagation during inference
+
+2. **Feature Extraction Pipeline**:
+   - Computer vision models (e.g., YOLO, RCNN) for object detection
+   - Automated feature engineering from video (no manual annotation)
+   - Extract temporal dynamics: flow rates, queue lengths, vehicle trajectories
+
+3. **Deployment Constraints**:
+   - 2-minute processing embargo simulates real-world latency
+   - Model must be reproducible and deployable
+   - Back-propagation allowed during offline training, not during inference
+
+### AI/ML Approach
+
+This challenge requires a **two-stage pipeline**:
+
+#### Stage 1: Computer Vision Feature Extraction
+Transform unstructured video into structured time-series features:
+- **Object Detection**: YOLOv8/Faster-RCNN to detect vehicles (cars, buses, trucks, motorcycles)
+- **Object Tracking**: ByteTrack/DeepSORT for vehicle trajectories and dwell time
+- **Zone Analysis**: Define entry/exit/queue/circulating zones per camera
+- **Feature Engineering**:
+  - Vehicle counts per zone
+  - Flow rates (vehicles/minute)
+  - Average dwell time in roundabout
+  - Queue lengths
+  - Entry-to-exit timing patterns
+  - Directional flow imbalances
+  - Vehicle type distributions
+
+#### Stage 2: Time Series Classification
+Convert features to congestion predictions:
+- **Model Options**:
+  - Traditional ML: XGBoost, Random Forest, LightGBM with temporal features
+  - Sequential models: LSTM, GRU, Temporal Convolutional Networks
+  - Hybrid: Vision features → Gradient boosting ensemble
+- **Feature Aggregation**: Combine multi-camera views into joint representation
+- **Temporal Context**: Use 15-minute history to predict 5-minute future
+
+### Evaluation Metrics
+
+**Dual-Metric Weighted Score**:
+- **70% Macro-F1**: Class-balanced performance (handles imbalanced congestion classes)
+- **30% Accuracy**: Overall prediction correctness
+
+**Submission Format**:
+```csv
+ID,Target,Target_Accuracy
+time_segment_181_Norman Niles #1_congestion_enter_rating,heavy delay,heavy delay
+time_segment_181_Norman Niles #1_congestion_exit_rating,heavy delay,heavy delay
+...
+```
+
+Both `Target` (for F1) and `Target_Accuracy` (for Accuracy) columns required.
+
+### Interpretability Prize
+
+Top 20 solutions must submit **feature importance analysis**:
+- Feature name (e.g., "avg_dwell_time_camera_1")
+- Feature contribution (SHAP values, permutation importance, etc.)
+- Notes on congestion causality
+
+**Domain Insight**: Barbadian drivers often don't signal when entering/exiting roundabouts—this behavioral pattern may be detectable in trajectory data and correlate with congestion.
+
+### Data Characteristics
+
+**Training Data**:
+- 4 camera views: North, East, South, West (Norman Niles roundabout)
+- ~1-minute video segments synchronized across cameras
+- Labels: 4-class congestion ratings for enter/exit per camera
+- Augmentation allowed (must be reproducible)
+
+**Test Data**:
+- 15 minutes of unlabeled video
+- Predict minutes 18-23 (6 time steps ahead)
+- Real-time constraint: no access to future segments
+
+### Key Machine Learning Challenges
+
+1. **Unstructured to Structured**: Convert raw pixels to predictive features
+2. **Multi-View Fusion**: Combine 4 camera perspectives coherently
+3. **Temporal Dynamics**: Capture congestion propagation patterns
+4. **Class Imbalance**: Handle imbalanced congestion class distribution
+5. **Real-Time Constraints**: Respect causality (no look-ahead)
+6. **Generalization**: Train on limited labeled data, predict unseen patterns
+
+### Success Criteria
+
+**Technical**:
+- High Macro-F1 and Accuracy on private test set
+- Reproducible automated pipeline (no manual labels)
+- Real-time compatibility (2-minute embargo respected)
+
+**Business Impact**:
+- Identify actionable congestion drivers (e.g., flow imbalances, signal usage)
+- Enable Ministry of Transport to design evidence-based interventions
+- Scalable solution for other Barbados roundabouts
+
+---
+
+**About the Partners**:
+- **Keleya Labs**: Innovation for social impact and citizen experience improvement
+- **GovTech Barbados Ltd.**: State-owned enterprise driving government digital transformation
+
+
+
+
+
+
+
+
 See [VEHICLE_TRACKING.md](VEHICLE_TRACKING.md) for detailed documentation on tracking and dwell time analysis.
 
 ## Project Structure
