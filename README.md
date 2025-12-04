@@ -663,44 +663,17 @@ processing_summary.json                # Batch processing summary
 
 ---
 
-## ML Pipeline
+# Per-camera breakdown:
+    normanniles1: 4,679 files, 144.96 GB
+    normanniles2: 4,679 files, 147.34 GB
+    normanniles3: 4,679 files, 144.97 GB
+    normanniles4: 4,679 files, 143.73 GB
 
-### Architecture
+============================================================
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    ML PIPELINE ARCHITECTURE                  │
-└─────────────────────────────────────────────────────────────┘
-
-Raw Data (Train.csv)
-        ↓
-┌───────────────────────┐
-│ Feature Engineering   │  → feature_engineering.py
-│ - 15-min windows      │
-│ - Temporal features   │
-│ - Rolling stats       │
-└───────────────────────┘
-        ↓
-Features + Labels (CSV)
-        ↓
-┌───────────────────────┐
-│ Model Training        │  → train_model.py
-│ - XGBoost classifier  │
-│ - Cross-validation    │
-│ - Hyperparameter tune │
-└───────────────────────┘
-        ↓
-Trained Model (JSON)
-        ↓
-┌───────────────────────┐
-│ Prediction            │  → predict.py
-│ - Load test data      │
-│ - Generate forecasts  │
-│ - Create submission   │
-└───────────────────────┘
-        ↓
-Submission File (CSV)
-```
+📊 GRAND TOTAL (all buckets):
+  Total files: 37,432
+  Total size: 711.88 GB (764,380,379,169 bytes)
 
 ### ML Pipeline Quick Start
 
