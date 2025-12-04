@@ -204,7 +204,8 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
-
+vehicle_durations_all.json
+processing_summary.json
 # Marimo
 marimo/_static/
 marimo/_lsp/

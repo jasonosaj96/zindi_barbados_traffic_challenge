@@ -257,7 +257,7 @@ chmod +x *.sh
 
 **Full automated pipeline:**
 ```bash
-./automation_scripts/automated_pipeline.sh --max-files 10 --save-video
+./automation_scripts/automated_pipeline.sh --max-files 20 --save-video
 ```
 
 This will:

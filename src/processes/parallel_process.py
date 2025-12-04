@@ -115,7 +115,7 @@ class ParallelProcessor:
             if save_video:
                 cmd.append('--save-video')
 
-            # Run processing
+            # Run processing - don't capture output to see real-time logs
             proc_result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -132,8 +132,16 @@ class ParallelProcessor:
                 if result['has_metrics']:
                     print(f"[{worker_name}]   • Metrics generated")
             else:
-                result['error'] = proc_result.stderr[:200]
+                # Store full error for debugging
+                result['error'] = proc_result.stderr
+                result['stdout'] = proc_result.stdout
                 print(f"[{worker_name}] ✗ Failed: {video_path.name}")
+                # Print full error output for debugging
+                print(f"[{worker_name}] Error output:")
+                print(proc_result.stderr)
+                if proc_result.stdout:
+                    print(f"[{worker_name}] Standard output:")
+                    print(proc_result.stdout)
 
         except subprocess.TimeoutExpired:
             result['error'] = "Processing timeout (>1 hour)"
@@ -260,8 +268,11 @@ class ParallelProcessor:
             print(f"\n❌ Failed videos:")
             for r in failed:
                 video_name = Path(r['video']).name
-                error = r['error'][:100] if r['error'] else 'Unknown error'
-                print(f"  - {video_name}: {error}")
+                error = r['error'] if r['error'] else 'Unknown error'
+                # Show first 300 chars of error for summary
+                error_preview = error[:300] + '...' if len(error) > 300 else error
+                print(f"  - {video_name}:")
+                print(f"    {error_preview}")
 
         print(f"{'=' * 70}\n")
 

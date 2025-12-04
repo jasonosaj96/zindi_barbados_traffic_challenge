@@ -8,6 +8,7 @@ detects vehicles using YOLO, and counts them in specific zones defined by polygo
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import cv2
@@ -15,6 +16,8 @@ import numpy as np
 from ultralytics import YOLO
 import supervision as sv
 from collections import defaultdict
+import traceback
+import sys
 
 # Import roundabout metrics calculator
 try:
@@ -32,13 +35,42 @@ class VehicleCounter:
         camera_config: Dict = None,
         confidence_threshold: float = 0.3,
         iou_threshold: float = 0.7,
-        enable_tracking: bool = True
+        enable_tracking: bool = True,
+        log_level: str = "INFO"
     ):
-        self.model = YOLO(model_path)
+        # Setup logger
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(getattr(logging, log_level.upper()))
+
+        # Remove existing handlers to avoid duplicates
+        if self.logger.handlers:
+            self.logger.handlers.clear()
+
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(getattr(logging, log_level.upper()))
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
+
+        self.logger.info(f"Initializing VehicleCounter with model: {model_path}")
+
+        try:
+            self.model = YOLO(model_path)
+            self.logger.info(f"Successfully loaded YOLO model: {model_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to load YOLO model: {e}")
+            raise
+
         self.camera_config = camera_config or {}
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
         self.enable_tracking = enable_tracking
+
+        self.logger.info(f"Config: conf={confidence_threshold}, iou={iou_threshold}, tracking={enable_tracking}")
         # add type hints
         self.zones: Dict[str, sv.PolygonZone] = {}
         self.zone_annotators: Dict[str, sv.PolygonZoneAnnotator] = {}
@@ -55,7 +87,13 @@ class VehicleCounter:
         self.vehicle_journeys: Dict[int, Dict] = {}
         # Track vehicle class names
         self.vehicle_classes: Dict[int, Tuple[int, str]] = {}  # {tracker_id: (class_id, class_name)}
-        
+
+        # Track which vehicles have entered at least one zone (for validation)
+        self.vehicles_in_zones: set = set()  # {tracker_id}
+
+        # Track ID merging map: {old_id: new_id} for deduplication
+        self.track_id_merges: Dict[int, int] = {}
+
         # Frame-by-frame raw detections for post-processing
         self.raw_detections_by_frame: List[Dict] = []
 
@@ -64,19 +102,36 @@ class VehicleCounter:
 
     def _setup_zones(self):
         """Initialize polygon zones from camera configuration."""
-        for zone_name, polygon_points in self.camera_config.get("zones", {}).items():
-            polygon = np.array(polygon_points, dtype=np.int32)
-            self.zones[zone_name] = sv.PolygonZone(
-                polygon=polygon,
-                triggering_anchors=[sv.Position.BOTTOM_CENTER]
-            )
-            self.zone_annotators[zone_name] = sv.PolygonZoneAnnotator(
-                zone=self.zones[zone_name],
-                color=sv.Color.from_hex(self.camera_config.get("zone_colors", {}).get(zone_name, "#FF0000")),
-                thickness=2,
-                text_thickness=2,
-                text_scale=1
-            )
+        try:
+            zones_config = self.camera_config.get("zones", {})
+            if not zones_config:
+                self.logger.warning("No zones defined in camera configuration")
+                return
+
+            self.logger.info(f"Setting up {len(zones_config)} zones")
+            for zone_name, polygon_points in zones_config.items():
+                try:
+                    polygon = np.array(polygon_points, dtype=np.int32)
+                    self.logger.debug(f"Zone '{zone_name}': {len(polygon_points)} points")
+
+                    self.zones[zone_name] = sv.PolygonZone(
+                        polygon=polygon,
+                        triggering_anchors=[sv.Position.BOTTOM_CENTER]
+                    )
+                    self.zone_annotators[zone_name] = sv.PolygonZoneAnnotator(
+                        zone=self.zones[zone_name],
+                        color=sv.Color.from_hex(self.camera_config.get("zone_colors", {}).get(zone_name, "#FF0000")),
+                        thickness=2,
+                        text_thickness=2,
+                        text_scale=1
+                    )
+                    self.logger.info(f"Successfully configured zone: {zone_name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to setup zone '{zone_name}': {e}")
+                    raise
+        except Exception as e:
+            self.logger.error(f"Error in _setup_zones: {e}")
+            raise
 
     def _update_vehicle_tracking(self, detections: sv.Detections, frame_num: int, timestamp: float):
         """
@@ -206,16 +261,18 @@ class VehicleCounter:
                 zone_state = self.vehicle_states[tracker_id][zone_name]
 
                 if is_in_zone and not zone_state:
-                    # Vehicle entering zone
+                    # Vehicle entering zone - mark as valid
+                    self.vehicles_in_zones.add(tracker_id)
+
                     self.vehicle_states[tracker_id][zone_name] = {
                         'enter_time': frame_num,
                         'enter_timestamp': timestamp
                     }
-                    
+
                     # Record entry in journey
                     if zone_name not in self.vehicle_journeys[tracker_id]['zones']:
                         self.vehicle_journeys[tracker_id]['zones'][zone_name] = []
-                    
+
                     self.vehicle_journeys[tracker_id]['zones'][zone_name].append({
                         'time_entered': timestamp,
                         'frame_entered': frame_num,
@@ -245,6 +302,206 @@ class VehicleCounter:
                     # Clear state
                     self.vehicle_states[tracker_id][zone_name] = {}
     
+    def _deduplicate_tracks(self,
+                           time_threshold: float = 2.0,
+                           distance_threshold: float = 100.0,
+                           iou_threshold: float = 0.3) -> Dict[int, int]:
+        """
+        Deduplicate fragmented tracks by merging track IDs that likely represent the same vehicle.
+
+        Args:
+            time_threshold: Maximum time gap (seconds) between tracks to consider merging
+            distance_threshold: Maximum spatial distance (pixels) between end/start positions
+            iou_threshold: Minimum IoU overlap for bounding boxes
+
+        Returns:
+            Dictionary mapping old track IDs to canonical track IDs
+        """
+        merge_map = {}  # {fragmented_id: canonical_id}
+
+        # Sort journeys by first appearance time
+        sorted_journeys = sorted(
+            self.vehicle_journeys.items(),
+            key=lambda x: x[1]['first_seen_time']
+        )
+
+        # Compare each pair of tracks
+        for i, (id1, journey1) in enumerate(sorted_journeys):
+            if id1 in merge_map:
+                continue  # Already merged
+
+            for id2, journey2 in sorted_journeys[i+1:]:
+                if id2 in merge_map:
+                    continue  # Already merged
+
+                # Check if journey2 starts shortly after journey1 ends
+                time_gap = journey2['first_seen_time'] - journey1['last_seen_time']
+
+                if 0 < time_gap <= time_threshold:
+                    # Check spatial proximity
+                    if self._tracks_are_close(journey1, journey2, distance_threshold, iou_threshold):
+                        # Check if they have compatible class types
+                        if journey1['class_name'] == journey2['class_name']:
+                            # Merge id2 into id1
+                            merge_map[id2] = id1
+
+        return merge_map
+
+    def _tracks_are_close(self, journey1: Dict, journey2: Dict,
+                          distance_threshold: float, iou_threshold: float) -> bool:
+        """
+        Check if two tracks are spatially close enough to be the same vehicle.
+        """
+        detections1 = journey1.get('detections', [])
+        detections2 = journey2.get('detections', [])
+
+        if not detections1 or not detections2:
+            return False
+
+        # Get last position of journey1 and first position of journey2
+        last_bbox1 = detections1[-1]['bbox']
+        first_bbox2 = detections2[0]['bbox']
+
+        # Calculate Euclidean distance between centers
+        dx = last_bbox1['center_x'] - first_bbox2['center_x']
+        dy = last_bbox1['center_y'] - first_bbox2['center_y']
+        distance = np.sqrt(dx**2 + dy**2)
+
+        if distance > distance_threshold:
+            return False
+
+        # Calculate IoU between last bbox of journey1 and first bbox of journey2
+        iou = self._calculate_iou(
+            [last_bbox1['x1'], last_bbox1['y1'], last_bbox1['x2'], last_bbox1['y2']],
+            [first_bbox2['x1'], first_bbox2['y1'], first_bbox2['x2'], first_bbox2['y2']]
+        )
+
+        # Also check zone compatibility - should be in same or adjacent zones
+        zones1 = set(journey1.get('zones', {}).keys())
+        zones2 = set(journey2.get('zones', {}).keys())
+
+        # If they share at least one zone or are in adjacent zones, more likely same vehicle
+        has_zone_overlap = len(zones1.intersection(zones2)) > 0
+
+        return iou >= iou_threshold or (distance < distance_threshold / 2 and has_zone_overlap)
+
+    def _calculate_iou(self, box1: List[float], box2: List[float]) -> float:
+        """Calculate Intersection over Union of two bounding boxes."""
+        x1_min, y1_min, x1_max, y1_max = box1
+        x2_min, y2_min, x2_max, y2_max = box2
+
+        # Calculate intersection area
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+
+        if inter_x_max < inter_x_min or inter_y_max < inter_y_min:
+            return 0.0
+
+        inter_area = (inter_x_max - inter_x_min) * (inter_y_max - inter_y_min)
+
+        # Calculate union area
+        box1_area = (x1_max - x1_min) * (y1_max - y1_min)
+        box2_area = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = box1_area + box2_area - inter_area
+
+        if union_area == 0:
+            return 0.0
+
+        return inter_area / union_area
+
+    def _merge_vehicle_journeys(self, merge_map: Dict[int, int]) -> Dict[int, Dict]:
+        """
+        Merge fragmented vehicle journeys based on the merge map.
+
+        Args:
+            merge_map: Dictionary mapping fragmented IDs to canonical IDs
+
+        Returns:
+            Dictionary of merged vehicle journeys
+        """
+        merged_journeys = {}
+
+        for tracker_id, journey in self.vehicle_journeys.items():
+            # Find canonical ID (follow merge chain)
+            canonical_id = tracker_id
+            while canonical_id in merge_map:
+                canonical_id = merge_map[canonical_id]
+
+            if canonical_id not in merged_journeys:
+                # This is the first time we see this canonical ID
+                merged_journeys[canonical_id] = {
+                    'tracker_id': canonical_id,
+                    'class_id': journey['class_id'],
+                    'class_name': journey['class_name'],
+                    'first_seen_frame': journey['first_seen_frame'],
+                    'first_seen_time': journey['first_seen_time'],
+                    'last_seen_frame': journey['last_seen_frame'],
+                    'last_seen_time': journey['last_seen_time'],
+                    'zones': {},
+                    'detections': journey['detections'].copy(),
+                    'speeds': journey.get('speeds', []).copy(),
+                    'bounding_boxes': journey.get('bounding_boxes', []).copy(),
+                    'confidence_scores': journey.get('confidence_scores', []).copy(),
+                    'merged_ids': [tracker_id]  # Track which IDs were merged
+                }
+            else:
+                # Merge this journey into the existing canonical journey
+                canonical = merged_journeys[canonical_id]
+                canonical['merged_ids'].append(tracker_id)
+
+                # Update time range
+                canonical['first_seen_frame'] = min(canonical['first_seen_frame'], journey['first_seen_frame'])
+                canonical['first_seen_time'] = min(canonical['first_seen_time'], journey['first_seen_time'])
+                canonical['last_seen_frame'] = max(canonical['last_seen_frame'], journey['last_seen_frame'])
+                canonical['last_seen_time'] = max(canonical['last_seen_time'], journey['last_seen_time'])
+
+                # Merge detections (sort by timestamp)
+                canonical['detections'].extend(journey['detections'])
+                canonical['detections'].sort(key=lambda x: x['timestamp'])
+
+                # Merge other data
+                canonical['speeds'].extend(journey.get('speeds', []))
+                canonical['speeds'].sort(key=lambda x: x['timestamp'])
+
+                canonical['bounding_boxes'].extend(journey.get('bounding_boxes', []))
+                canonical['bounding_boxes'].sort(key=lambda x: x['timestamp'])
+
+                canonical['confidence_scores'].extend(journey.get('confidence_scores', []))
+                canonical['confidence_scores'].sort(key=lambda x: x['timestamp'])
+
+                # Merge zones (combine all zone visits)
+                for zone_name, visits in journey.get('zones', {}).items():
+                    if zone_name not in canonical['zones']:
+                        canonical['zones'][zone_name] = []
+                    canonical['zones'][zone_name].extend(visits)
+                    # Sort by entry time
+                    canonical['zones'][zone_name].sort(key=lambda x: x['time_entered'] if x['time_entered'] else 0)
+
+        return merged_journeys
+
+    def _filter_valid_vehicles(self) -> Dict[int, Dict]:
+        """
+        Filter vehicle journeys to only include vehicles that appeared in at least one zone.
+        Returns a dictionary of valid vehicle journeys.
+        """
+        valid_journeys = {}
+        for tracker_id, journey in self.vehicle_journeys.items():
+            # Check if vehicle has entered at least one zone
+            # Need to handle both original IDs and potentially merged IDs
+            canonical_id = tracker_id
+            while canonical_id in self.track_id_merges:
+                canonical_id = self.track_id_merges[canonical_id]
+
+            if canonical_id in self.vehicles_in_zones or tracker_id in self.vehicles_in_zones:
+                valid_journeys[tracker_id] = journey
+            else:
+                # Log vehicles that were tracked but never entered a zone (potential false detections)
+                pass  # Silently filter out invalid vehicles
+
+        return valid_journeys
+
     def _extract_metadata_from_filename(self, video_path: str) -> Dict:
         """Extract metadata from video filename (date, time, camera)"""
         import re
@@ -297,171 +554,226 @@ class VehicleCounter:
         Returns:
             Dictionary containing vehicle counts per zone
         """
-        cap = cv2.VideoCapture(video_path)
+        self.logger.info("="*80)
+        self.logger.info(f"Starting video processing: {video_path}")
+        self.logger.info("="*80)
 
-        if not cap.isOpened():
-            raise ValueError(f"Could not open video: {video_path}")
+        try:
+            # Validate input file
+            if not Path(video_path).exists():
+                self.logger.error(f"Video file does not exist: {video_path}")
+                raise FileNotFoundError(f"Video file not found: {video_path}")
 
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            self.logger.info(f"Opening video file: {video_path}")
+            cap = cv2.VideoCapture(video_path)
 
-        video_writer = None
-        if output_path:
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            if not cap.isOpened():
+                self.logger.error(f"Could not open video: {video_path}")
+                raise ValueError(f"Could not open video: {video_path}")
 
-        box_annotator = sv.BoxAnnotator(thickness=2)
-        label_annotator = sv.LabelAnnotator(text_thickness=1, text_scale=0.5)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        frame_count = 0
-        print(f"Processing video: {video_path}")
-        print(f"Resolution: {width}x{height}, FPS: {fps}, Total frames: {total_frames}")
+            self.logger.info(f"Video properties: {width}x{height}, {fps} FPS, {total_frames} frames")
+            self.logger.info(f"Duration: {total_frames/fps:.2f} seconds")
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+            if total_frames == 0:
+                self.logger.error("Video has 0 frames - file may be corrupted")
+                raise ValueError("Video has 0 frames")
 
-            frame_count += 1
+            video_writer = None
+            if output_path:
+                self.logger.info(f"Output video will be saved to: {output_path}")
+                try:
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                    if not video_writer.isOpened():
+                        self.logger.error(f"Failed to open video writer for: {output_path}")
+                        raise ValueError(f"Could not create video writer: {output_path}")
+                    self.logger.info("Video writer initialized successfully")
+                except Exception as e:
+                    self.logger.error(f"Error creating video writer: {e}")
+                    raise
 
-            results = self.model(
-                frame,
-                conf=self.confidence_threshold,
-                iou=self.iou_threshold,
-                verbose=False
-            )[0]
+            box_annotator = sv.BoxAnnotator(thickness=2)
+            label_annotator = sv.LabelAnnotator(text_thickness=1, text_scale=0.5)
 
-            detections = sv.Detections.from_ultralytics(results)
+            frame_count = 0
+            self.logger.info(f"Starting frame processing loop...")
 
-            vehicle_classes = [2, 3, 5, 7]
-            vehicle_mask = np.isin(detections.class_id, vehicle_classes)
-            detections = detections[vehicle_mask]
+            while True:
+                try:
+                    ret, frame = cap.read()
+                    if not ret:
+                        self.logger.info(f"Finished reading frames at frame {frame_count}")
+                        break
 
-            # Apply tracking
-            if self.enable_tracking and self.tracker:
-                detections = self.tracker.update_with_detections(detections)
+                    frame_count += 1
 
-            # Calculate current timestamp
-            timestamp = frame_count / fps
+                    # Run detection
+                    try:
+                        results = self.model(
+                            frame,
+                            conf=self.confidence_threshold,
+                            iou=self.iou_threshold,
+                            verbose=False
+                        )[0]
+                    except Exception as e:
+                        self.logger.error(f"Detection failed at frame {frame_count}: {e}")
+                        raise
 
-            # Update vehicle tracking and dwell times
-            if self.enable_tracking:
-                self._update_vehicle_tracking(detections, frame_count, timestamp)
+                    detections = sv.Detections.from_ultralytics(results)
 
-            for zone_name, zone in self.zones.items():
-                zone.trigger(detections)
-                frame = self.zone_annotators[zone_name].annotate(frame)
+                    # Filter for vehicle classes
+                    vehicle_classes = [2, 3, 5, 7]  # car, motorcycle, bus, truck
+                    vehicle_mask = np.isin(detections.class_id, vehicle_classes)
+                    detections = detections[vehicle_mask]
 
-            # Create labels with tracker IDs if tracking enabled
-            if self.enable_tracking and detections.tracker_id is not None:
-                labels = [
-                    f"#{tracker_id} {self.model.names[class_id]} {confidence:.2f}"
-                    for tracker_id, class_id, confidence in zip(
-                        detections.tracker_id, detections.class_id, detections.confidence
+                    # Apply tracking
+                    if self.enable_tracking and self.tracker:
+                        try:
+                            detections = self.tracker.update_with_detections(detections)
+                        except Exception as e:
+                            self.logger.error(f"Tracking failed at frame {frame_count}: {e}")
+                            raise
+
+                    # Calculate current timestamp
+                    timestamp = frame_count / fps
+
+                    # Update vehicle tracking and dwell times
+                    if self.enable_tracking:
+                        try:
+                            self._update_vehicle_tracking(detections, frame_count, timestamp)
+                        except Exception as e:
+                            self.logger.error(f"Vehicle tracking update failed at frame {frame_count}: {e}")
+                            raise
+
+                    # Annotate zones
+                    for zone_name, zone in self.zones.items():
+                        zone.trigger(detections)
+                        frame = self.zone_annotators[zone_name].annotate(frame)
+
+                    # Create labels with tracker IDs if tracking enabled
+                    if self.enable_tracking and detections.tracker_id is not None:
+                        labels = [
+                            f"#{tracker_id} {self.model.names[class_id]} {confidence:.2f}"
+                            for tracker_id, class_id, confidence in zip(
+                                detections.tracker_id, detections.class_id, detections.confidence
+                            )
+                        ]
+                    else:
+                        labels = [
+                            f"{self.model.names[class_id]} {confidence:.2f}"
+                            for class_id, confidence in zip(detections.class_id, detections.confidence)
+                        ]
+
+                    frame = box_annotator.annotate(frame, detections)
+                    frame = label_annotator.annotate(frame, detections, labels)
+
+                    # Add frame info
+                    info_y = 30
+                    cv2.putText(
+                        frame,
+                        f"Frame: {frame_count}/{total_frames}",
+                        (10, info_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (255, 255, 255),
+                        2
                     )
-                ]
-            else:
-                labels = [
-                    f"{self.model.names[class_id]} {confidence:.2f}"
-                    for class_id, confidence in zip(detections.class_id, detections.confidence)
-                ]
 
-            frame = box_annotator.annotate(frame, detections)
-            frame = label_annotator.annotate(frame, detections, labels)
+                    for zone_name, zone in self.zones.items():
+                        info_y += 30
+                        cv2.putText(
+                            frame,
+                            f"{zone_name}: {int(zone.current_count)}",
+                            (10, info_y),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (0, 255, 0),
+                            2
+                        )
 
-            info_y = 30
-            cv2.putText(
-                frame,
-                f"Frame: {frame_count}/{total_frames}",
-                (10, info_y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
+                    if video_writer:
+                        video_writer.write(frame)
 
-            for zone_name, zone in self.zones.items():
-                info_y += 30
-                cv2.putText(
-                    frame,
-                    f"{zone_name}: {int(zone.current_count)}",
-                    (10, info_y),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2
-                )
+                    if display:
+                        cv2.imshow("Vehicle Counting", frame)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            self.logger.info("User requested quit")
+                            break
 
+                    if frame_count % 100 == 0:
+                        self.logger.info(f"Processed {frame_count}/{total_frames} frames ({100*frame_count/total_frames:.1f}%)")
+
+                except Exception as e:
+                    self.logger.error(f"Error processing frame {frame_count}: {e}")
+                    self.logger.error(traceback.format_exc())
+                    raise
+
+            self.logger.info(f"Completed processing {frame_count} frames")
+
+            cap.release()
             if video_writer:
-                video_writer.write(frame)
-
+                video_writer.release()
+                self.logger.info(f"Video writer released")
             if display:
-                cv2.imshow("Vehicle Counting", frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                cv2.destroyAllWindows()
 
-            if frame_count % 100 == 0:
-                print(f"Processed {frame_count}/{total_frames} frames ({100*frame_count/total_frames:.1f}%)")
+            final_counts = {zone_name: int(zone.current_count) for zone_name, zone in self.zones.items()}
+            self.logger.info(f"Final zone counts: {final_counts}")
 
-        cap.release()
-        if video_writer:
-            video_writer.release()
-        if display:
-            cv2.destroyAllWindows()
+            print("\nFinal Counts:")
+            for zone_name, count in final_counts.items():
+                print(f"  {zone_name}: {count}")
 
-        final_counts = {zone_name: int(zone.current_count) for zone_name, zone in self.zones.items()}
+            # Calculate dwell time statistics
+            dwell_stats = {}
+            if self.enable_tracking:
+                print("\nDwell Time Statistics (seconds):")
+                for zone_name, times in self.dwell_times.items():
+                    if times:
+                        dwell_stats[zone_name] = {
+                            'mean': float(np.mean(times)),
+                            'median': float(np.median(times)),
+                            'min': float(np.min(times)),
+                            'max': float(np.max(times)),
+                            'std': float(np.std(times)),
+                            'count': len(times)
+                        }
+                        print(f"  {zone_name}:")
+                        print(f"    Mean: {dwell_stats[zone_name]['mean']:.2f}s")
+                        print(f"    Median: {dwell_stats[zone_name]['median']:.2f}s")
+                        print(f"    Min: {dwell_stats[zone_name]['min']:.2f}s")
+                        print(f"    Max: {dwell_stats[zone_name]['max']:.2f}s")
+                        print(f"    Std Dev: {dwell_stats[zone_name]['std']:.2f}s")
+                        print(f"    Vehicles tracked: {dwell_stats[zone_name]['count']}")
 
-        print("\nFinal Counts:")
-        for zone_name, count in final_counts.items():
-            print(f"  {zone_name}: {count}")
+            if save_counts:
+                output_path = Path(video_path).with_suffix('.counts.json')
 
-        # Calculate dwell time statistics
-        dwell_stats = {}
-        if self.enable_tracking:
-            print("\nDwell Time Statistics (seconds):")
-            for zone_name, times in self.dwell_times.items():
-                if times:
-                    dwell_stats[zone_name] = {
-                        'mean': float(np.mean(times)),
-                        'median': float(np.median(times)),
-                        'min': float(np.min(times)),
-                        'max': float(np.max(times)),
-                        'std': float(np.std(times)),
-                        'count': len(times)
-                    }
-                    print(f"  {zone_name}:")
-                    print(f"    Mean: {dwell_stats[zone_name]['mean']:.2f}s")
-                    print(f"    Median: {dwell_stats[zone_name]['median']:.2f}s")
-                    print(f"    Min: {dwell_stats[zone_name]['min']:.2f}s")
-                    print(f"    Max: {dwell_stats[zone_name]['max']:.2f}s")
-                    print(f"    Std Dev: {dwell_stats[zone_name]['std']:.2f}s")
-                    print(f"    Vehicles tracked: {dwell_stats[zone_name]['count']}")
+                # Extract metadata from filename
+                metadata = self._extract_metadata_from_filename(video_path)
 
-        if save_counts:
-            output_path = Path(video_path).with_suffix('.counts.json')
-            
-            # Extract metadata from filename
-            metadata = self._extract_metadata_from_filename(video_path)
-            
-            # Create flat structure with metadata at root level
-            output_data = {
-                'video_path': str(video_path),
-                'filename': metadata.get('filename'),
-                'camera': metadata.get('camera'),
-                'date': metadata.get('date'),
-                'time': metadata.get('time'),
-                'datetime': metadata.get('datetime'),
-                'hour': metadata.get('hour'),
-                'minute': metadata.get('minute'),
-                'total_frames': total_frames,
-                'fps': fps,
-                'duration_seconds': total_frames / fps if fps > 0 else 0,
-                'video_width': width,
-                'video_height': height,
-                'total_vehicles_tracked': 0,
-            }
+                # Create flat structure with metadata at root level (convert numpy types to native Python)
+                output_data = {
+                    'video_path': str(video_path),
+                    'filename': metadata.get('filename'),
+                    'camera': metadata.get('camera'),
+                    'date': metadata.get('date'),
+                    'time': metadata.get('time'),
+                    'datetime': metadata.get('datetime'),
+                    'hour': metadata.get('hour'),
+                    'minute': metadata.get('minute'),
+                    'total_frames': int(total_frames),
+                    'fps': int(fps),
+                    'duration_seconds': float(total_frames / fps) if fps > 0 else 0.0,
+                    'video_width': int(width),
+                    'video_height': int(height),
+                    'total_vehicles_tracked': 0,
+                }
             
             # Add zone counts at root level
             for zone_name, count in final_counts.items():
@@ -478,19 +790,50 @@ class VehicleCounter:
                     output_data[f'dwell_count_{zone_name}'] = stats.get('count', 0)
             
             # Add ML-relevant vehicle journey summaries (no raw frame-by-frame data)
+            # First deduplicate fragmented tracks, then filter to only include vehicles in zones
             if self.enable_tracking and self.vehicle_journeys:
-                output_data['vehicle_journeys'] = self._create_ml_features_from_journeys()
-                output_data['total_vehicles_tracked'] = len(self.vehicle_journeys)
-                
-                # Add vehicle class summary (flattened)
+                # Step 1: Deduplicate fragmented tracks
+                print("\nDeduplicating fragmented tracks...")
+                merge_map = self._deduplicate_tracks(
+                    time_threshold=2.0,      # Max 2 seconds gap
+                    distance_threshold=150.0, # Max 150 pixels distance
+                    iou_threshold=0.2        # Min 20% IoU overlap
+                )
+                self.track_id_merges = merge_map
+
+                if merge_map:
+                    print(f"  Found {len(merge_map)} fragmented tracks to merge")
+                    # Merge the journeys
+                    self.vehicle_journeys = self._merge_vehicle_journeys(merge_map)
+                    # Update vehicles_in_zones set with merged IDs
+                    updated_zones = set()
+                    for vid in self.vehicles_in_zones:
+                        canonical = vid
+                        while canonical in merge_map:
+                            canonical = merge_map[canonical]
+                        updated_zones.add(canonical)
+                    self.vehicles_in_zones = updated_zones
+                else:
+                    print("  No fragmented tracks found")
+
+                # Step 2: Filter valid vehicles (those that entered at least one zone)
+                valid_journeys = self._filter_valid_vehicles()
+                output_data['vehicle_journeys'] = self._create_ml_features_from_journeys(valid_journeys)
+                output_data['total_vehicles_tracked'] = len(valid_journeys)
+                output_data['total_vehicles_detected_raw'] = len(self.vehicle_journeys) + len(merge_map)
+                output_data['tracks_merged'] = len(merge_map)
+                output_data['total_vehicles_after_dedup'] = len(self.vehicle_journeys)
+                output_data['invalid_vehicles_filtered'] = len(self.vehicle_journeys) - len(valid_journeys)
+
+                # Add vehicle class summary (flattened) - only for valid vehicles
                 class_summary = defaultdict(int)
-                for journey in self.vehicle_journeys.values():
+                for journey in valid_journeys.values():
                     class_summary[journey['class_name']] += 1
                 for class_name, count in class_summary.items():
                     output_data[f'vehicle_class_{class_name}'] = count
                 
-                # Add comprehensive polygon statistics (flattened)
-                polygon_stats = self._calculate_polygon_statistics()
+                # Add comprehensive polygon statistics (flattened) - only for valid vehicles
+                polygon_stats = self._calculate_polygon_statistics(valid_journeys)
                 for zone_name, stats in polygon_stats.items():
                     output_data[f'poly_total_visits_{zone_name}'] = stats.get('total_visits', 0)
                     output_data[f'poly_unique_vehicles_{zone_name}'] = stats.get('unique_vehicles', 0)
@@ -552,25 +895,87 @@ class VehicleCounter:
                         output_data[f'roundabout_{approach_name}_average_delay'] = approach_data.get('average_delay', 0)
                         output_data[f'roundabout_{approach_name}_queue_length'] = approach_data.get('queue_length', 0)
             
+            # Convert numpy types to native Python types for JSON serialization
+            def convert_to_native_types(obj):
+                """Recursively convert numpy types to native Python types"""
+                if isinstance(obj, dict):
+                    return {k: convert_to_native_types(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_to_native_types(item) for item in obj]
+                elif isinstance(obj, (np.integer, np.int64, np.int32)):
+                    return int(obj)
+                elif isinstance(obj, (np.floating, np.float64, np.float32)):
+                    return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                else:
+                    return obj
+            
+            output_data = convert_to_native_types(output_data)
+            
             with open(output_path, 'w') as f:
                 json.dump(output_data, f, indent=2)
             print(f"\nAll data saved to: {output_path}")
             
             if self.enable_tracking and self.vehicle_journeys:
                 print(f"\nVehicle Tracking Summary:")
-                print(f"  Total vehicles tracked: {output_data['total_vehicles_tracked']}")
+                print(f"  Total raw detections: {output_data.get('total_vehicles_detected_raw', 0)}")
+                print(f"  Fragmented tracks merged: {output_data.get('tracks_merged', 0)}")
+                print(f"  Unique vehicles after deduplication: {output_data.get('total_vehicles_after_dedup', 0)}")
+                print(f"  Valid vehicles (entered at least one zone): {output_data['total_vehicles_tracked']}")
+                print(f"  Invalid vehicles filtered: {output_data['invalid_vehicles_filtered']}")
                 vehicle_classes = {k.replace('vehicle_class_', ''): v for k, v in output_data.items() if k.startswith('vehicle_class_')}
                 if vehicle_classes:
-                    print(f"  Vehicle classes:")
+                    print(f"  Vehicle classes (valid only):")
                     for class_name, count in sorted(vehicle_classes.items()):
                         print(f"    {class_name}: {count}")
 
-        return final_counts
+            self.logger.info("="*80)
+            self.logger.info("Video processing completed successfully")
+            self.logger.info("="*80)
+            return final_counts
+
+        except Exception as e:
+            self.logger.error("="*80)
+            self.logger.error(f"FATAL ERROR during video processing: {e}")
+            self.logger.error("="*80)
+            self.logger.error(f"Error type: {type(e).__name__}")
+            self.logger.error(f"Error details: {str(e)}")
+            self.logger.error("Full traceback:")
+            self.logger.error(traceback.format_exc())
+
+            # Ensure resources are released
+            try:
+                if 'cap' in locals() and cap is not None:
+                    cap.release()
+                    self.logger.info("Video capture released")
+            except:
+                pass
+
+            try:
+                if 'video_writer' in locals() and video_writer is not None:
+                    video_writer.release()
+                    self.logger.info("Video writer released")
+            except:
+                pass
+
+            try:
+                if display:
+                    cv2.destroyAllWindows()
+            except:
+                pass
+
+            # Re-raise the exception
+            raise
     
-    def _calculate_polygon_statistics(self) -> Dict:
-        """Calculate comprehensive statistics for each polygon/zone"""
+    def _calculate_polygon_statistics(self, vehicle_journeys: Dict[int, Dict]) -> Dict:
+        """
+        Calculate comprehensive statistics for each polygon/zone.
+        Args:
+            vehicle_journeys: Dictionary of vehicle journeys to analyze (should be filtered for valid vehicles only)
+        """
         polygon_stats = {}
-        
+
         for zone_name in self.zones.keys():
             stats = {
                 'total_vehicles': 0,
@@ -583,9 +988,9 @@ class VehicleCounter:
                 'avg_bbox_area': [],
                 'confidence_scores': []
             }
-            
-            # Collect data from all vehicle journeys
-            for journey in self.vehicle_journeys.values():
+
+            # Collect data from vehicle journeys (should already be filtered)
+            for journey in vehicle_journeys.values():
                 if zone_name in journey.get('zones', {}):
                     visits = journey['zones'][zone_name]
                     
@@ -760,11 +1165,15 @@ class VehicleCounter:
         
         return confidences
     
-    def _create_ml_features_from_journeys(self) -> List[Dict]:
-        """Create ML-ready features from vehicle journeys (no raw frame data)"""
+    def _create_ml_features_from_journeys(self, vehicle_journeys: Dict[int, Dict]) -> List[Dict]:
+        """
+        Create ML-ready features from vehicle journeys (no raw frame data).
+        Args:
+            vehicle_journeys: Dictionary of vehicle journeys to process (should be filtered for valid vehicles only)
+        """
         ml_features = []
-        
-        for journey in self.vehicle_journeys.values():
+
+        for journey in vehicle_journeys.values():
             # Calculate trajectory-based features
             detections = journey.get('detections', [])
             speeds = journey.get('speeds', [])
@@ -1095,6 +1504,13 @@ def main():
         action="store_true",
         help="Save annotated video with detections and zones"
     )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level (default: INFO)"
+    )
 
     args = parser.parse_args()
 
@@ -1115,7 +1531,8 @@ def main():
             camera_config=camera_config,
             confidence_threshold=args.conf,
             iou_threshold=args.iou,
-            enable_tracking=not args.no_tracking
+            enable_tracking=not args.no_tracking,
+            log_level=args.log_level
         )
 
         # Determine output path for annotated video

@@ -117,7 +117,6 @@ class GCSDataPipeline:
         """Download a single file from GCS"""
         local_path.parent.mkdir(parents=True, exist_ok=True)
 
-        print(f"  Downloading: {gcs_path.split('/')[-1]}")
         cmd = ['gsutil', '-m', 'cp', gcs_path, str(local_path)]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
