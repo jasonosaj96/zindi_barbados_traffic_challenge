@@ -44,8 +44,7 @@ echo ""
 python src/processes/extract_vehicle_durations.py \
     --dir video_processed_files \
     --output vehicle_durations_all.json \
-    --individual \
-    --output-dir video_processed_files
+    --individual
 
 echo ""
 echo "========================================================================"

@@ -240,7 +240,7 @@ echo "Step 5: Extracting Vehicle Zone Duration Data"
 echo "========================================================================"
 echo ""
 
-EXTRACT_CMD="python src/processes/extract_vehicle_durations.py --dir $OUTPUT_DIR --output vehicle_durations_all.json --individual --output-dir $OUTPUT_DIR"
+EXTRACT_CMD="python src/processes/extract_vehicle_durations.py --dir $OUTPUT_DIR --output vehicle_durations_all.json --individual"
 
 if [ "$CAMERAS" != "all" ]; then
     EXTRACT_CMD="$EXTRACT_CMD --cameras $CAMERAS"

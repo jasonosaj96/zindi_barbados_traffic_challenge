@@ -208,15 +208,20 @@ class VehicleDurationExtractor:
         print(f"  Files processed: {self.file_count}")
         print(f"  Total vehicles tracked: {self.total_vehicles}")
 
-    def save_individual_outputs(self, results: List[Dict], output_dir: Path):
-        """Save each video's vehicle duration data to a separate file"""
-
-        output_dir.mkdir(parents=True, exist_ok=True)
+    def save_individual_outputs(self, results: List[Dict], output_dir: Path = None):
+        """Save each video's vehicle duration data alongside the source .counts.json file"""
 
         for result in results:
-            # Determine output filename
+            # Determine output filename - save in same directory as source file
             source_file = Path(result['source_file'])
-            output_file = output_dir / source_file.name.replace('.counts.json', '.durations.json')
+
+            # If output_dir is specified, use it; otherwise save alongside source file
+            if output_dir:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_file = output_dir / source_file.name.replace('.counts.json', '.durations.json')
+            else:
+                # Save in the same directory as the source .counts.json file
+                output_file = source_file.parent / source_file.name.replace('.counts.json', '.durations.json')
 
             # Remove source_file from the output
             output_data = {k: v for k, v in result.items() if k != 'source_file'}
@@ -224,9 +229,12 @@ class VehicleDurationExtractor:
             with open(output_file, 'w') as f:
                 json.dump(output_data, f, indent=2)
 
-            print(f"  Saved: {output_file.name}")
+            print(f"  Saved: {output_file}")
 
-        print(f"\n✓ Saved {len(results)} individual duration files to: {output_dir}")
+        if output_dir:
+            print(f"\n✓ Saved {len(results)} individual duration files to: {output_dir}")
+        else:
+            print(f"\n✓ Saved {len(results)} individual duration files alongside source files")
 
 
 def main():
