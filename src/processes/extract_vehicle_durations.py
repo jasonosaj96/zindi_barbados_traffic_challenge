@@ -176,8 +176,9 @@ class VehicleDurationExtractor:
 
         print(f"Found {len(counts_files)} counts.json files")
 
-        for counts_file in sorted(counts_files):
-            print(f"Processing: {counts_file.name}")
+        total_files = len(counts_files)
+        for index, counts_file in enumerate(sorted(counts_files), start=1):
+            print(f"Processing ({index}/{total_files}): {counts_file.name}")
             try:
                 result = self.extract_from_counts_file(counts_file)
                 result['source_file'] = str(counts_file)

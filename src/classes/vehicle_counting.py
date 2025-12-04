@@ -587,12 +587,33 @@ class VehicleCounter:
             if output_path:
                 self.logger.info(f"Output video will be saved to: {output_path}")
                 try:
-                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                    video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-                    if not video_writer.isOpened():
-                        self.logger.error(f"Failed to open video writer for: {output_path}")
+                    # Use H264 codec for better compatibility and web streaming
+                    # Try different codecs in order of preference
+                    codecs = [
+                        ('avc1', 'H264 (best for web)'),
+                        ('H264', 'H264 alternative'),
+                        ('X264', 'X264'),
+                        ('mp4v', 'MPEG-4 fallback')
+                    ]
+
+                    video_writer = None
+                    for codec, desc in codecs:
+                        try:
+                            fourcc = cv2.VideoWriter_fourcc(*codec)
+                            temp_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                            if temp_writer.isOpened():
+                                video_writer = temp_writer
+                                self.logger.info(f"Video writer initialized with {desc}")
+                                break
+                            else:
+                                temp_writer.release()
+                        except Exception:
+                            continue
+
+                    if video_writer is None or not video_writer.isOpened():
+                        self.logger.error(f"Failed to open video writer with any codec")
                         raise ValueError(f"Could not create video writer: {output_path}")
-                    self.logger.info("Video writer initialized successfully")
+
                 except Exception as e:
                     self.logger.error(f"Error creating video writer: {e}")
                     raise
