@@ -440,7 +440,7 @@ class VehicleCounter:
                     print(f"    Vehicles tracked: {dwell_stats[zone_name]['count']}")
 
         if save_counts:
-            output_path = Path(video_path).with_suffix('.json')
+            output_path = Path(video_path).with_suffix('.counts.json')
             
             # Extract metadata from filename
             metadata = self._extract_metadata_from_filename(video_path)

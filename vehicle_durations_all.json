@@ -1,0 +1,663 @@
+{
+  "files_processed": 4,
+  "total_vehicles_tracked": 33,
+  "videos": [
+    {
+      "metadata": {
+        "video_path": "video_processed_files/normanniles1/normanniles1_2025-10-20-08-59-45.annotated.mp4",
+        "filename": "normanniles1_2025-10-20-08-59-45.annotated",
+        "camera": "normanniles1",
+        "date": "2025-10-20",
+        "time": "08:59:45",
+        "datetime": "2025-10-20 08:59:45",
+        "duration_seconds": 59.85,
+        "fps": 20,
+        "total_frames": 1197
+      },
+      "vehicles": {
+        "1": {
+          "tracker_id": 1,
+          "class_id": 7,
+          "class_name": "truck",
+          "first_seen_time": 19.1,
+          "last_seen_time": 19.35,
+          "total_time_visible": 0.25,
+          "total_frames_tracked": 5,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "6": {
+          "tracker_id": 6,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 51.75,
+          "last_seen_time": 54.35,
+          "total_time_visible": 2.6000000000000014,
+          "total_frames_tracked": 28,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.7000000000000028,
+                "frame_entered": null,
+                "frame_exited": null
+              },
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 0.10000000000000142,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": []
+          }
+        }
+      },
+      "summary": {
+        "total_vehicles": 2,
+        "vehicles_per_zone": {
+          "north_circulating": 2,
+          "north_exit": 1
+        }
+      },
+      "source_file": "video_processed_files/normanniles1/normanniles1_2025-10-20-08-59-45.annotated.counts.json"
+    },
+    {
+      "metadata": {
+        "video_path": "video_processed_files/normanniles1/normanniles1_2025-10-20-08-59-45.mp4",
+        "filename": "normanniles1_2025-10-20-08-59-45",
+        "camera": "normanniles1",
+        "date": "2025-10-20",
+        "time": "08:59:45",
+        "datetime": "2025-10-20 08:59:45",
+        "duration_seconds": 59.85,
+        "fps": 20,
+        "total_frames": 1197
+      },
+      "vehicles": {
+        "1": {
+          "tracker_id": 1,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 0.05,
+          "last_seen_time": 2.75,
+          "total_time_visible": 2.7,
+          "total_frames_tracked": 52,
+          "zones": {
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.05,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "3": {
+          "tracker_id": 3,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 0.2,
+          "last_seen_time": 0.2,
+          "total_time_visible": 0.0,
+          "total_frames_tracked": 1,
+          "zones": {
+            "north_exit": []
+          }
+        },
+        "4": {
+          "tracker_id": 4,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 15.6,
+          "last_seen_time": 19.4,
+          "total_time_visible": 3.799999999999999,
+          "total_frames_tracked": 76,
+          "zones": {
+            "north_entry": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.6500000000000004,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_circulating": []
+          }
+        },
+        "7": {
+          "tracker_id": 7,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 16.7,
+          "last_seen_time": 16.7,
+          "total_time_visible": 0.0,
+          "total_frames_tracked": 1,
+          "zones": {
+            "north_entry": []
+          }
+        },
+        "10": {
+          "tracker_id": 10,
+          "class_id": 7,
+          "class_name": "truck",
+          "first_seen_time": 18.8,
+          "last_seen_time": 18.95,
+          "total_time_visible": 0.14999999999999858,
+          "total_frames_tracked": 4,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "14": {
+          "tracker_id": 14,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 46.55,
+          "last_seen_time": 57.05,
+          "total_time_visible": 10.5,
+          "total_frames_tracked": 193,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 2.299999999999997,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 2.700000000000003,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "17": {
+          "tracker_id": 17,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 48.05,
+          "last_seen_time": 52.25,
+          "total_time_visible": 4.200000000000003,
+          "total_frames_tracked": 77,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 0.9500000000000028,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.8000000000000043,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "25": {
+          "tracker_id": 25,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 50.2,
+          "last_seen_time": 53.7,
+          "total_time_visible": 3.5,
+          "total_frames_tracked": 68,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 0.8999999999999986,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.7999999999999972,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "33": {
+          "tracker_id": 33,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 52.0,
+          "last_seen_time": 52.05,
+          "total_time_visible": 0.04999999999999716,
+          "total_frames_tracked": 2,
+          "zones": {
+            "north_exit": []
+          }
+        },
+        "36": {
+          "tracker_id": 36,
+          "class_id": 7,
+          "class_name": "truck",
+          "first_seen_time": 56.1,
+          "last_seen_time": 56.25,
+          "total_time_visible": 0.14999999999999858,
+          "total_frames_tracked": 4,
+          "zones": {}
+        },
+        "38": {
+          "tracker_id": 38,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 59.3,
+          "last_seen_time": 59.85,
+          "total_time_visible": 0.5500000000000043,
+          "total_frames_tracked": 12,
+          "zones": {
+            "north_circulating": []
+          }
+        }
+      },
+      "summary": {
+        "total_vehicles": 11,
+        "vehicles_per_zone": {
+          "north_exit": 6,
+          "north_entry": 2,
+          "north_circulating": 6
+        }
+      },
+      "source_file": "video_processed_files/normanniles1/normanniles1_2025-10-20-08-59-45.counts.json"
+    },
+    {
+      "metadata": {
+        "video_path": "video_processed_files/normanniles1/normanniles1_2025-10-20-09-00-45.annotated.mp4",
+        "filename": "normanniles1_2025-10-20-09-00-45.annotated",
+        "camera": "normanniles1",
+        "date": "2025-10-20",
+        "time": "09:00:45",
+        "datetime": "2025-10-20 09:00:45",
+        "duration_seconds": 59.85,
+        "fps": 20,
+        "total_frames": 1197
+      },
+      "vehicles": {
+        "1": {
+          "tracker_id": 1,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 26.55,
+          "last_seen_time": 26.6,
+          "total_time_visible": 0.05000000000000071,
+          "total_frames_tracked": 2,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "2": {
+          "tracker_id": 2,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 45.85,
+          "last_seen_time": 46.75,
+          "total_time_visible": 0.8999999999999986,
+          "total_frames_tracked": 15,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "3": {
+          "tracker_id": 3,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 48.8,
+          "last_seen_time": 49.15,
+          "total_time_visible": 0.3500000000000014,
+          "total_frames_tracked": 8,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "5": {
+          "tracker_id": 5,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 50.8,
+          "last_seen_time": 51.95,
+          "total_time_visible": 1.1500000000000057,
+          "total_frames_tracked": 23,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "9": {
+          "tracker_id": 9,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 52.75,
+          "last_seen_time": 52.75,
+          "total_time_visible": 0.0,
+          "total_frames_tracked": 1,
+          "zones": {
+            "north_circulating": []
+          }
+        }
+      },
+      "summary": {
+        "total_vehicles": 5,
+        "vehicles_per_zone": {
+          "north_circulating": 5
+        }
+      },
+      "source_file": "video_processed_files/normanniles1/normanniles1_2025-10-20-09-00-45.annotated.counts.json"
+    },
+    {
+      "metadata": {
+        "video_path": "video_processed_files/normanniles1/normanniles1_2025-10-20-09-00-45.mp4",
+        "filename": "normanniles1_2025-10-20-09-00-45",
+        "camera": "normanniles1",
+        "date": "2025-10-20",
+        "time": "09:00:45",
+        "datetime": "2025-10-20 09:00:45",
+        "duration_seconds": 59.85,
+        "fps": 20,
+        "total_frames": 1197
+      },
+      "vehicles": {
+        "1": {
+          "tracker_id": 1,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 0.05,
+          "last_seen_time": 0.1,
+          "total_time_visible": 0.05,
+          "total_frames_tracked": 2,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "2": {
+          "tracker_id": 2,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 0.5,
+          "last_seen_time": 1.95,
+          "total_time_visible": 1.45,
+          "total_frames_tracked": 21,
+          "zones": {
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.45,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "6": {
+          "tracker_id": 6,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 2.4,
+          "last_seen_time": 3.7,
+          "total_time_visible": 1.3000000000000003,
+          "total_frames_tracked": 16,
+          "zones": {}
+        },
+        "7": {
+          "tracker_id": 7,
+          "class_id": 7,
+          "class_name": "truck",
+          "first_seen_time": 2.7,
+          "last_seen_time": 3.75,
+          "total_time_visible": 1.0499999999999998,
+          "total_frames_tracked": 21,
+          "zones": {}
+        },
+        "10": {
+          "tracker_id": 10,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 4.25,
+          "last_seen_time": 6.25,
+          "total_time_visible": 2.0,
+          "total_frames_tracked": 41,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.9000000000000004,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "11": {
+          "tracker_id": 11,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 26.2,
+          "last_seen_time": 28.85,
+          "total_time_visible": 2.650000000000002,
+          "total_frames_tracked": 52,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 0.9499999999999993,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": []
+          }
+        },
+        "12": {
+          "tracker_id": 12,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 27.1,
+          "last_seen_time": 30.5,
+          "total_time_visible": 3.3999999999999986,
+          "total_frames_tracked": 68,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.0999999999999979,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.5500000000000007,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "19": {
+          "tracker_id": 19,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 40.05,
+          "last_seen_time": 43.0,
+          "total_time_visible": 2.950000000000003,
+          "total_frames_tracked": 57,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.0500000000000043,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": []
+          }
+        },
+        "20": {
+          "tracker_id": 20,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 41.65,
+          "last_seen_time": 42.25,
+          "total_time_visible": 0.6000000000000014,
+          "total_frames_tracked": 11,
+          "zones": {
+            "north_exit": []
+          }
+        },
+        "21": {
+          "tracker_id": 21,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 43.9,
+          "last_seen_time": 43.9,
+          "total_time_visible": 0.0,
+          "total_frames_tracked": 1,
+          "zones": {}
+        },
+        "22": {
+          "tracker_id": 22,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 45.4,
+          "last_seen_time": 52.3,
+          "total_time_visible": 6.899999999999999,
+          "total_frames_tracked": 139,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 3.6000000000000014,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "26": {
+          "tracker_id": 26,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 52.1,
+          "last_seen_time": 56.75,
+          "total_time_visible": 4.649999999999999,
+          "total_frames_tracked": 87,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 0.9500000000000028,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.9500000000000028,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "28": {
+          "tracker_id": 28,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 52.5,
+          "last_seen_time": 52.5,
+          "total_time_visible": 0.0,
+          "total_frames_tracked": 1,
+          "zones": {
+            "north_circulating": []
+          }
+        },
+        "29": {
+          "tracker_id": 29,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 53.85,
+          "last_seen_time": 57.5,
+          "total_time_visible": 3.6499999999999986,
+          "total_frames_tracked": 68,
+          "zones": {
+            "north_circulating": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 1.3999999999999986,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ],
+            "north_exit": [
+              {
+                "time_entered": null,
+                "time_exited": null,
+                "duration": 2.0,
+                "frame_entered": null,
+                "frame_exited": null
+              }
+            ]
+          }
+        },
+        "33": {
+          "tracker_id": 33,
+          "class_id": 2,
+          "class_name": "car",
+          "first_seen_time": 55.15,
+          "last_seen_time": 55.15,
+          "total_time_visible": 0.0,
+          "total_frames_tracked": 1,
+          "zones": {
+            "north_exit": []
+          }
+        }
+      },
+      "summary": {
+        "total_vehicles": 15,
+        "vehicles_per_zone": {
+          "north_circulating": 9,
+          "north_exit": 8
+        }
+      },
+      "source_file": "video_processed_files/normanniles1/normanniles1_2025-10-20-09-00-45.counts.json"
+    }
+  ]
+}

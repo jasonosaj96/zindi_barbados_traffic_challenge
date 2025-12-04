@@ -234,15 +234,60 @@ fi
 
 echo ""
 
-# Step 5: Summary
+# Step 5: Extract vehicle zone duration data
+echo "========================================================================"
+echo "Step 5: Extracting Vehicle Zone Duration Data"
+echo "========================================================================"
+echo ""
+
+EXTRACT_CMD="python src/processes/extract_vehicle_durations.py --dir $OUTPUT_DIR --output vehicle_durations_all.json --individual --output-dir $OUTPUT_DIR"
+
+if [ "$CAMERAS" != "all" ]; then
+    EXTRACT_CMD="$EXTRACT_CMD --cameras $CAMERAS"
+fi
+
+echo "Running: $EXTRACT_CMD"
+echo ""
+
+$EXTRACT_CMD
+
+if [ $? -ne 0 ]; then
+    echo "⚠️  Vehicle duration extraction encountered issues (non-critical)"
+fi
+
+echo ""
+
+# Step 6: Consolidate to CSV
+echo "========================================================================"
+echo "Step 6: Consolidating Results to CSV"
+echo "========================================================================"
+echo ""
+
+CSV_CMD="python src/processes/consolidate_to_csv.py --dir $OUTPUT_DIR --output consolidated_results.csv --summary"
+
+if [ "$CAMERAS" != "all" ]; then
+    CSV_CMD="$CSV_CMD --cameras $CAMERAS"
+fi
+
+echo "Running: $CSV_CMD"
+echo ""
+
+$CSV_CMD
+
+if [ $? -ne 0 ]; then
+    echo "⚠️  CSV consolidation encountered issues (non-critical)"
+fi
+
+echo ""
+
+# Step 7: Summary
 echo "========================================================================"
 echo "Pipeline Complete!"
 echo "========================================================================"
 echo ""
 echo "Results are saved in:"
-echo "  - $OUTPUT_DIR/normanniles[1-4]/*.counts.json (vehicle counts)"
-echo "  - $OUTPUT_DIR/normanniles[1-4]/*.movements.json (movement patterns)"
-echo "  - $OUTPUT_DIR/normanniles[1-4]/*.detections.json (raw detections)"
+echo "  - $OUTPUT_DIR/normanniles[1-4]/*.counts.json (vehicle counts, journeys, and zone stats)"
+echo "  - $OUTPUT_DIR/normanniles[1-4]/*.durations.json (vehicle zone durations with entry/exit times)"
 if [ "$SAVE_VIDEO" = "true" ]; then
     echo "  - $OUTPUT_DIR/normanniles[1-4]/*.annotated.mp4 (annotated videos)"
 fi
@@ -250,8 +295,13 @@ echo ""
 echo "Processing summary saved in:"
 echo "  - processing_summary.json"
 echo ""
+echo "Consolidated outputs:"
+echo "  - vehicle_durations_all.json (all videos - vehicle durations)"
+echo "  - consolidated_results.csv (all videos - summary statistics)"
+echo ""
 echo "Next steps:"
-echo "  - Review results: ls -lh $OUTPUT_DIR/*/*.json"
-echo "  - Analyze data: python analyze_counts.py"
+echo "  - Review CSV: head consolidated_results.csv"
+echo "  - Analyze in Python: import pandas as pd; df = pd.read_csv('consolidated_results.csv')"
+echo "  - View vehicle durations: cat vehicle_durations_all.json | jq '.videos[0].vehicles'"
 echo "  - Generate visualizations: python batch_process_videos.py"
 echo ""

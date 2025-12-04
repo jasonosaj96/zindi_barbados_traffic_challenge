@@ -1,0 +1,67 @@
+# Configuration for Barbados Traffic Challenge
+
+# Feature Engineering
+feature_engineering:
+  window_size: 15  # minutes of historical data
+  prediction_horizon: 5  # minutes ahead to predict
+  embargo_period: 2  # processing embargo in minutes
+
+# Model Configuration
+model:
+  # XGBoost hyperparameters
+  xgboost:
+    objective: 'multi:softmax'
+    num_class: 4
+    max_depth: 6
+    learning_rate: 0.1
+    n_estimators: 200
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 1
+    gamma: 0
+    reg_alpha: 0
+    reg_lambda: 1
+    random_state: 42
+    eval_metric: 'mlogloss'
+    tree_method: 'hist'
+
+# Training Configuration
+training:
+  test_split: 0.2
+  cross_validation_folds: 5
+  random_seed: 42
+
+# Evaluation Metrics
+evaluation:
+  macro_f1_weight: 0.7
+  accuracy_weight: 0.3
+
+# Data Paths
+paths:
+  data_dir: 'dataset/'
+  features_dir: 'features/'
+  models_dir: 'models/'
+  submissions_dir: 'submissions/'
+
+  train_csv: 'dataset/Train.csv'
+  test_csv: 'dataset/Test.csv'
+
+  train_features: 'features/train_features.csv'
+  train_labels: 'features/train_labels.csv'
+  test_features: 'features/test_features.csv'
+
+  submission: 'submissions/submission.csv'
+
+# Congestion Levels
+congestion_levels:
+  - 'free flowing'
+  - 'light delay'
+  - 'moderate delay'
+  - 'heavy delay'
+
+# Cameras
+cameras:
+  - 'Norman Niles #1'
+  - 'Norman Niles #2'
+  - 'Norman Niles #3'
+  - 'Norman Niles #4'

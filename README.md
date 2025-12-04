@@ -1,19 +1,21 @@
 # Zindi Barbados Traffic Challenge
+## AI-Powered Traffic Congestion Prediction & Analysis
 
-Vehicle counting and congestion analysis for roundabout traffic using YOLO and Supervision.
+## Table of Contents
+- [Challenge Overview](#challenge-overview)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Computer Vision Pipeline](#computer-vision-pipeline)
+- [ML Pipeline](#ml-pipeline)
+- [CSV Consolidation & Analysis](#csv-consolidation--analysis)
+- [Vehicle Duration Tracking](#vehicle-duration-tracking)
+- [Advanced Usage](#advanced-usage)
+- [Troubleshooting](#troubleshooting)
 
-## Overview
+---
 
-This project processes roundabout traffic videos from 4 cameras (Norman Niles #1-4), detects vehicles using YOLOv8, and counts them in defined zones to analyze congestion patterns.
-
-**New Features:**
-- ✨ **Individual vehicle tracking** with unique IDs
-- ⏱️ **Dwell time measurement** - track how long vehicles spend in each zone
-- 📊 **Enhanced statistics** - mean, median, min, max dwell times per zone
-- 🔄 **Directional flow analysis** - understand traffic movement patterns
-
-
-## Challenge: AI-Powered Traffic Congestion Prediction
+## Challenge Overview
 
 ### Problem Statement
 
@@ -659,6 +661,753 @@ analysis_plots/
 processing_summary.json                # Batch processing summary
 ```
 
+---
+
+## ML Pipeline
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ML PIPELINE ARCHITECTURE                  │
+└─────────────────────────────────────────────────────────────┘
+
+Raw Data (Train.csv)
+        ↓
+┌───────────────────────┐
+│ Feature Engineering   │  → feature_engineering.py
+│ - 15-min windows      │
+│ - Temporal features   │
+│ - Rolling stats       │
+└───────────────────────┘
+        ↓
+Features + Labels (CSV)
+        ↓
+┌───────────────────────┐
+│ Model Training        │  → train_model.py
+│ - XGBoost classifier  │
+│ - Cross-validation    │
+│ - Hyperparameter tune │
+└───────────────────────┘
+        ↓
+Trained Model (JSON)
+        ↓
+┌───────────────────────┐
+│ Prediction            │  → predict.py
+│ - Load test data      │
+│ - Generate forecasts  │
+│ - Create submission   │
+└───────────────────────┘
+        ↓
+Submission File (CSV)
+```
+
+### ML Pipeline Quick Start
+
+#### Option 1: Full Pipeline (Recommended)
+
+Run everything in one command:
+
+```bash
+python pipeline.py --mode full
+```
+
+This will:
+1. Generate features from training data
+2. Train models with cross-validation
+3. Generate features from test data
+4. Create predictions
+5. Save submission file
+
+#### Option 2: Step-by-Step
+
+**Step 1: Feature Engineering**
+
+```bash
+# Training data
+python feature_engineering.py \
+    --input dataset/Train.csv \
+    --output features/train_features.csv
+
+# Test data
+python feature_engineering.py \
+    --input dataset/Test.csv \
+    --output features/test_features.csv \
+    --test-mode
+```
+
+**Step 2: Model Training**
+
+```bash
+python train_model.py \
+    --features features/train_features.csv \
+    --labels features/train_labels.csv \
+    --output models/ \
+    --cv 5
+```
+
+**Step 3: Prediction**
+
+```bash
+python predict.py \
+    --features features/test_features.csv \
+    --model models/ \
+    --output submissions/submission.csv
+```
+
+### ML Configuration
+
+Edit [config.yaml](config.yaml) to customize:
+
+```yaml
+feature_engineering:
+  window_size: 15              # Input window (minutes)
+  prediction_horizon: 5        # Forecast horizon (minutes)
+  embargo_period: 2            # Processing delay (minutes)
+
+model:
+  xgboost:
+    max_depth: 6
+    learning_rate: 0.1
+    n_estimators: 200
+    # ... more hyperparameters
+
+training:
+  test_split: 0.2
+  cross_validation_folds: 5
+```
+
+### Features Engineered
+
+#### Temporal Features
+- **Current state**: Last minute congestion levels
+- **Trends**: Linear slopes over 15-minute window
+- **Acceleration**: Second-order trends
+- **Persistence**: Duration of current congestion state
+
+#### Statistical Features
+- **Rolling means**: 5-minute and full window averages
+- **Rolling max/min**: Peak congestion levels
+- **Volatility**: Standard deviation of congestion
+
+#### Derived Features
+- **Direction imbalance**: Enter vs. exit congestion difference
+- **Change detection**: Recent state changes
+- **Progression indicators**: Worsening/improving flags
+
+#### Time-Based Features
+- **Hour of day**: 0-23
+- **Day of week**: 0-6
+- **Rush hour flags**: Morning (7-9) and evening (16-18)
+- **Weekend indicator**: Binary flag
+
+### Model Details
+
+#### Architecture
+- **Algorithm**: XGBoost Classifier
+- **Objective**: Multi-class softmax (4 classes)
+- **Models**: Separate models for entrance and exit congestion
+
+#### Hyperparameters
+```python
+{
+    'max_depth': 6,
+    'learning_rate': 0.1,
+    'n_estimators': 200,
+    'subsample': 0.8,
+    'colsample_bytree': 0.8,
+    'min_child_weight': 1,
+    'gamma': 0,
+    'reg_alpha': 0,
+    'reg_lambda': 1
+}
+```
+
+#### Evaluation Metrics
+- **Primary**: 70% Macro-F1 + 30% Accuracy (weighted)
+- **Macro-F1**: Treats all congestion classes equally
+- **Accuracy**: Overall prediction correctness
+
+#### Validation Strategy
+- **Stratified split**: 80% train, 20% validation
+- **Cross-validation**: 5-fold stratified CV
+- **Monitoring**: Confusion matrices, per-class F1 scores
+
+### ML Output Files
+
+#### Models
+- `model_enter.json`: Entrance congestion predictor
+- `model_exit.json`: Exit congestion predictor
+- `model_metadata.json`: Configuration and feature names
+
+#### Evaluation
+- `evaluation_results.json`: Metrics on validation set
+- `feature_importance.csv`: Top contributing features
+- `confusion_matrices.png`: Visualization of predictions
+
+#### Submission
+- `submission.csv`: Competition submission format
+
+---
+
+## CSV Consolidation & Analysis
+
+### Overview
+
+The CSV consolidation script consolidates all `.counts.json` files into a single CSV file with one row per video and summary statistics as columns. This makes it easy to analyze results across multiple videos using spreadsheet software or data analysis tools.
+
+### Automatic Generation
+
+The consolidation script runs automatically as part of the pipeline:
+
+```bash
+# Quick test (2 files per camera)
+./automation_scripts/quick_test.sh
+
+# Full pipeline
+./automation_scripts/automated_pipeline.sh --dataset small --max-files 10
+```
+
+Both scripts will generate `consolidated_results.csv` in the project root directory.
+
+### Manual CSV Consolidation
+
+You can also run the consolidation script manually:
+
+```bash
+# Basic usage
+python src/processes/consolidate_to_csv.py --dir video_processed_files/
+
+# With custom output filename
+python src/processes/consolidate_to_csv.py --dir video_processed_files/ --output my_results.csv
+
+# Filter specific cameras
+python src/processes/consolidate_to_csv.py --dir video_processed_files/ --cameras 1,2
+
+# Show summary statistics
+python src/processes/consolidate_to_csv.py --dir video_processed_files/ --summary
+```
+
+### CSV Structure
+
+The CSV file contains one row per processed video with the following column groups:
+
+#### 1. Metadata Columns
+- `filename` - Video filename (without extension)
+- `camera` - Camera name (normanniles1, normanniles2, etc.)
+- `date` - Recording date (YYYY-MM-DD)
+- `time` - Recording time (HH:MM:SS)
+- `datetime` - Combined date and time
+- `hour` - Hour of recording (0-23)
+- `minute` - Minute of recording (0-59)
+- `duration_seconds` - Video duration in seconds
+- `fps` - Frames per second
+- `total_frames` - Total number of frames
+- `video_width` - Video width in pixels
+- `video_height` - Video height in pixels
+- `total_vehicles_tracked` - Total unique vehicles tracked
+
+#### 2. Zone Count Columns
+- `zone_count_north_entry` - Vehicles counted in north entry zone
+- `zone_count_north_exit` - Vehicles counted in north exit zone
+- `zone_count_north_circulating` - Vehicles counted in north circulating zone
+- _(Similar for east, south, west)_
+
+#### 3. Dwell Time Statistics
+- `dwell_mean_north_entry` - Mean dwell time in north entry zone (seconds)
+- `dwell_median_north_entry` - Median dwell time
+- `dwell_min_north_entry` - Minimum dwell time
+- `dwell_max_north_entry` - Maximum dwell time
+- `dwell_std_north_entry` - Standard deviation of dwell time
+- `dwell_count_north_entry` - Number of vehicles with dwell time recorded
+- _(Similar for all other zones)_
+
+#### 4. Vehicle Class Distribution
+- `vehicle_class_car` - Number of cars detected
+- `vehicle_class_truck` - Number of trucks detected
+- `vehicle_class_bus` - Number of buses detected
+- `vehicle_class_motorcycle` - Number of motorcycles detected
+- _(Other vehicle classes as detected)_
+
+#### 5. Journey Statistics
+- `avg_journey_duration` - Average time vehicles were visible (seconds)
+- `min_journey_duration` - Minimum journey duration
+- `max_journey_duration` - Maximum journey duration
+- `avg_zones_visited` - Average number of zones visited per vehicle
+- `max_zones_visited` - Maximum zones visited by any vehicle
+
+#### 6. Polygon Statistics (per zone)
+- `poly_total_visits_[zone]` - Total number of zone visits
+- `poly_unique_vehicles_[zone]` - Unique vehicles in zone
+- `poly_throughput_[zone]` - Throughput (vehicles per minute)
+- `poly_vtype_[class]_[zone]` - Vehicle type counts per zone
+- `poly_dur_mean_[zone]` - Mean duration in zone
+- `poly_dur_median_[zone]` - Median duration in zone
+- `poly_dur_std_[zone]` - Std deviation of duration
+- `poly_speed_mean_[zone]` - Mean speed in zone (pixels/sec)
+- `poly_speed_median_[zone]` - Median speed in zone
+- `poly_speed_std_[zone]` - Std deviation of speed
+- `poly_size_mean_[zone]` - Mean bounding box area
+- `poly_size_median_[zone]` - Median bounding box area
+- `poly_size_std_[zone]` - Std deviation of bounding box area
+- `poly_conf_mean_[zone]` - Mean detection confidence
+- `poly_conf_median_[zone]` - Median detection confidence
+
+#### 7. Roundabout Metrics (if available)
+- `roundabout_total_entering_flow` - Total entering flow
+- `roundabout_total_circulating_flow` - Total circulating flow
+- `roundabout_overall_capacity_index` - Capacity utilization index
+- `roundabout_is_feasible` - Whether roundabout is operating feasibly
+- `roundabout_overall_los` - Overall level of service
+- `roundabout_[direction]_entering_flow` - Per-direction entering flow
+- `roundabout_[direction]_circulating_flow` - Per-direction circulating flow
+- `roundabout_[direction]_entry_capacity` - Per-direction entry capacity
+- `roundabout_[direction]_capacity_index` - Per-direction capacity index
+- `roundabout_[direction]_level_of_service` - Per-direction LOS
+- `roundabout_[direction]_average_delay` - Per-direction average delay
+- `roundabout_[direction]_queue_length` - Per-direction queue length
+
+#### 8. Other Columns
+- `source_file` - Path to the source .counts.json file
+- `video_path` - Path to the source video file
+
+### Example CSV Analysis
+
+#### Using Pandas (Python)
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the CSV
+df = pd.read_csv('consolidated_results.csv')
+
+# Basic statistics
+print(f"Total videos: {len(df)}")
+print(f"Total vehicles tracked: {df['total_vehicles_tracked'].sum()}")
+print(f"Average vehicles per video: {df['total_vehicles_tracked'].mean():.1f}")
+
+# Videos per camera
+print("\nVideos per camera:")
+print(df['camera'].value_counts())
+
+# Average vehicles by camera
+print("\nAverage vehicles per camera:")
+print(df.groupby('camera')['total_vehicles_tracked'].mean())
+
+# Vehicle class distribution (total)
+vehicle_cols = [col for col in df.columns if col.startswith('vehicle_class_')]
+print("\nTotal vehicle class distribution:")
+for col in vehicle_cols:
+    class_name = col.replace('vehicle_class_', '')
+    total = df[col].sum()
+    print(f"  {class_name}: {int(total)}")
+
+# Traffic by hour of day
+print("\nAverage vehicles by hour:")
+print(df.groupby('hour')['total_vehicles_tracked'].mean().sort_index())
+
+# Plot traffic by hour
+df.groupby('hour')['total_vehicles_tracked'].mean().plot(kind='bar')
+plt.title('Average Vehicles by Hour')
+plt.xlabel('Hour of Day')
+plt.ylabel('Average Vehicles')
+plt.tight_layout()
+plt.savefig('traffic_by_hour.png')
+
+# Export filtered data
+filtered = df[(df['camera'] == 'normanniles1') & (df['total_vehicles_tracked'] > 50)]
+filtered.to_csv('camera1_high_traffic.csv', index=False)
+```
+
+#### Using Excel/Google Sheets
+
+1. Open `consolidated_results.csv` in Excel or Google Sheets
+2. Use filters to analyze specific cameras or time periods
+3. Create pivot tables to summarize data by camera, hour, date, etc.
+4. Create charts to visualize trends
+
+#### Using Command Line
+
+```bash
+# View first 10 rows
+head -n 10 consolidated_results.csv
+
+# Count total rows (videos)
+wc -l consolidated_results.csv
+
+# Get specific columns
+cut -d',' -f1,2,3,13 consolidated_results.csv | head
+
+# Sort by total vehicles (descending)
+(head -n 1 consolidated_results.csv && tail -n +2 consolidated_results.csv | sort -t',' -k13 -nr) | head -n 20
+
+# Filter specific camera
+grep "normanniles1" consolidated_results.csv > camera1_only.csv
+```
+
+### CSV Column Selection Tips
+
+The CSV can have 100+ columns depending on your zone configuration. Here are some tips for working with it:
+
+#### Essential Columns for Basic Analysis
+```python
+essential_cols = [
+    'filename', 'camera', 'date', 'time', 'hour',
+    'total_vehicles_tracked', 'duration_seconds'
+]
+df_basic = df[essential_cols]
+```
+
+#### Zone Count Analysis
+```python
+zone_count_cols = [col for col in df.columns if col.startswith('zone_count_')]
+df_zones = df[['filename', 'camera'] + zone_count_cols]
+```
+
+#### Vehicle Class Analysis
+```python
+vehicle_class_cols = [col for col in df.columns if col.startswith('vehicle_class_')]
+df_classes = df[['filename', 'camera'] + vehicle_class_cols]
+```
+
+#### Time-based Analysis
+```python
+time_cols = ['filename', 'camera', 'date', 'time', 'hour', 'minute', 'total_vehicles_tracked']
+df_time = df[time_cols].sort_values(['date', 'time'])
+```
+
+---
+
+## Vehicle Duration Tracking
+
+### Overview
+
+The automation pipeline generates `.durations.json` files that contain detailed information about each detected vehicle and the time they spent in each zone.
+
+### Duration Output Files
+
+After running the pipeline, you'll get:
+
+1. **Individual Duration Files**: `*.durations.json` - One per video, saved alongside the corresponding `.counts.json` file
+2. **Consolidated File**: `vehicle_durations_all.json` - All videos combined into a single file
+
+### Duration Data Structure
+
+#### Individual Duration File (*.durations.json)
+
+```json
+{
+  "metadata": {
+    "video_path": "path/to/video.mp4",
+    "filename": "normanniles1-2025-10-15-14-30-00",
+    "camera": "normanniles1",
+    "date": "2025-10-15",
+    "time": "14:30:00",
+    "datetime": "2025-10-15 14:30:00",
+    "duration_seconds": 60.0,
+    "fps": 30.0,
+    "total_frames": 1800
+  },
+  "vehicles": {
+    "1": {
+      "tracker_id": 1,
+      "class_id": 2,
+      "class_name": "car",
+      "first_seen_time": 0.5,
+      "last_seen_time": 15.3,
+      "total_time_visible": 14.8,
+      "total_frames_tracked": 444,
+      "zones": {
+        "entry": [
+          {
+            "time_entered": 0.5,
+            "time_exited": 3.2,
+            "duration": 2.7,
+            "frame_entered": 15,
+            "frame_exited": 96
+          }
+        ],
+        "exit_north": [
+          {
+            "time_entered": 12.1,
+            "time_exited": 15.3,
+            "duration": 3.2,
+            "frame_entered": 363,
+            "frame_exited": 459
+          }
+        ]
+      }
+    }
+  },
+  "summary": {
+    "total_vehicles": 1,
+    "vehicles_per_zone": {
+      "entry": 1,
+      "exit_north": 1
+    }
+  }
+}
+```
+
+#### Consolidated File (vehicle_durations_all.json)
+
+```json
+{
+  "files_processed": 4,
+  "total_vehicles_tracked": 25,
+  "videos": [
+    {
+      "source_file": "path/to/video1.counts.json",
+      "metadata": { ... },
+      "vehicles": { ... },
+      "summary": { ... }
+    }
+  ]
+}
+```
+
+### Duration Field Descriptions
+
+#### Vehicle Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tracker_id` | integer | Unique ID assigned to this vehicle by the tracking system |
+| `class_id` | integer | YOLO class ID (e.g., 2 = car, 7 = truck) |
+| `class_name` | string | Human-readable vehicle class name |
+| `first_seen_time` | float | Time (seconds) when vehicle was first detected in video |
+| `last_seen_time` | float | Time (seconds) when vehicle was last detected in video |
+| `total_time_visible` | float | Total time (seconds) vehicle was visible in video |
+| `total_frames_tracked` | integer | Number of frames where vehicle was detected |
+
+#### Zone Entry Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `time_entered` | float or null | Time (seconds) when vehicle entered the zone |
+| `time_exited` | float or null | Time (seconds) when vehicle exited the zone |
+| `duration` | float or null | Time (seconds) spent in the zone (dwell time) |
+| `frame_entered` | integer or null | Frame number when vehicle entered the zone |
+| `frame_exited` | integer or null | Frame number when vehicle exited the zone |
+
+**Note**: A vehicle can visit the same zone multiple times, so `zones` contains a list of visits per zone.
+
+### Duration Usage Examples
+
+#### View all vehicles in the first video
+
+```bash
+cat vehicle_durations_all.json | jq '.videos[0].vehicles'
+```
+
+#### Get vehicle IDs and their zones
+
+```bash
+cat vehicle_durations_all.json | jq '.videos[0].vehicles | to_entries[] | {id: .key, zones: .value.zones | keys}'
+```
+
+#### Find vehicles that visited a specific zone
+
+```bash
+cat video.durations.json | jq '.vehicles | to_entries[] | select(.value.zones.entry != null) | {id: .key, class: .value.class_name}'
+```
+
+#### Calculate total time all vehicles spent in a zone
+
+```bash
+cat video.durations.json | jq '[.vehicles[].zones.entry[]?.duration] | add'
+```
+
+#### Get summary statistics
+
+```bash
+cat vehicle_durations_all.json | jq '{total_files: .files_processed, total_vehicles: .total_vehicles_tracked}'
+```
+
+### Duration Integration with Pipeline
+
+#### Quick Test
+
+The `quick_test.sh` script automatically generates duration files:
+
+```bash
+./automation_scripts/quick_test.sh
+```
+
+This will create:
+- `video_processed_files/normanniles1/*.durations.json`
+- `vehicle_durations_all.json`
+
+#### Full Pipeline
+
+The `automated_pipeline.sh` script also includes duration extraction:
+
+```bash
+./automation_scripts/automated_pipeline.sh --dataset small --max-files 5
+```
+
+#### Manual Extraction
+
+You can also run the extraction script manually:
+
+```bash
+# Extract from a single counts.json file
+python src/processes/extract_vehicle_durations.py video.counts.json
+
+# Extract from all files in a directory
+python src/processes/extract_vehicle_durations.py --dir video_processed_files/
+
+# Extract for specific cameras only
+python src/processes/extract_vehicle_durations.py --dir video_processed_files/ --cameras 1,2
+
+# Save individual files alongside counts.json
+python src/processes/extract_vehicle_durations.py --dir video_processed_files/ --individual
+
+# Specify custom output filename
+python src/processes/extract_vehicle_durations.py --dir video_processed_files/ --output my_durations.json
+```
+
+### Duration Use Cases
+
+1. **Traffic Flow Analysis**: Track how long vehicles spend in each zone to identify bottlenecks
+2. **Route Pattern Detection**: Analyze which zones vehicles visit in sequence
+3. **Vehicle Classification**: Correlate dwell times with vehicle types
+4. **Time Series Analysis**: Combine with video metadata to analyze patterns by time of day
+5. **Machine Learning Features**: Use zone durations as input features for predictive models
+
+### Duration Notes
+
+- Vehicle IDs are unique **within each video** but not across videos
+- A vehicle may visit the same zone multiple times (e.g., circling a roundabout)
+- `null` values for entry/exit times indicate incomplete tracking (vehicle entered/exited the frame while in the zone)
+- All times are in seconds from the start of the video
+- Frame numbers are 0-indexed
+
+---
+
+## Troubleshooting
+
+### Computer Vision Issues
+
+#### No detections
+- Lower `--conf` threshold
+- Verify polygons cover vehicle paths
+- Check video file is valid
+
+#### Too many false positives
+- Increase `--conf` threshold
+- Refine zone polygons to exclude problem areas
+
+#### Zones not counting
+- Verify polygons cover vehicle paths using zone designer
+- Check zone configuration JSON file is valid
+- Test with `--display` flag to visualize
+
+#### Video not found
+- Check `_data/` directory structure matches dataframe paths
+- Verify GCS download completed successfully
+
+### ML Pipeline Issues
+
+#### Missing required columns
+**Solution**: Check that your CSV has all required columns:
+- `view_label`, `time_segment_id`, `datetimestamp_start`
+- `congestion_enter_rating`, `congestion_exit_rating` (for training)
+
+#### Insufficient data
+**Solution**: Ensure you have at least 22 consecutive time segments per camera:
+- 15 for input window
+- 2 for embargo
+- 5 for prediction
+
+#### Model files not found
+**Solution**: Run training before prediction:
+```bash
+python pipeline.py --mode train
+```
+
+### CSV Consolidation Issues
+
+#### Empty CSV
+- Check that `.counts.json` files exist in the data directory
+- Verify the directory path is correct
+- Use `--summary` flag to see processing details
+
+#### Missing Columns
+- Some columns only appear if tracking is enabled
+- Roundabout metrics require the roundabout_metrics module
+- Vehicle classes depend on what was detected in the videos
+
+#### Performance
+- Large datasets (1000+ videos) may take a few minutes
+- Consider filtering by camera to process subsets
+- Use `--cameras` flag to process specific cameras only
+
+### General Performance Tips
+- Use `yolov8n.pt` for speed (default)
+- Use `yolov8x.pt` for accuracy (slower)
+- Process without `--display` for faster batch processing
+- Skip existing: Script automatically skips videos with `.counts.json` files
+
+---
+
+## ML Best Practices Implemented
+
+### ✅ Modular Design
+- Separate scripts for each pipeline stage
+- Reusable components
+- Clean interfaces between modules
+
+### ✅ Configuration Management
+- Centralized config file (YAML)
+- No hardcoded parameters
+- Easy experimentation
+
+### ✅ Reproducibility
+- Fixed random seeds
+- Versioned data paths
+- Logging at every step
+
+### ✅ Validation
+- Input data validation
+- Missing column checks
+- Stratified splits
+
+### ✅ Logging
+- Structured logging throughout
+- Progress tracking
+- Error messages
+
+### ✅ Evaluation
+- Multiple metrics (F1, Accuracy, weighted)
+- Cross-validation
+- Confusion matrices
+- Feature importance analysis
+
+### ✅ Scalability
+- Efficient data processing
+- XGBoost's built-in parallelism
+- Modular architecture for easy improvements
+
+---
+
+## Next Steps & Enhancements
+
+### Immediate Improvements
+1. **Add video features**: Integrate vehicle counts, dwell times, flow rates
+2. **Multi-camera fusion**: Combine all 4 camera views
+3. **Hyperparameter tuning**: Grid search or Bayesian optimization
+4. **Feature selection**: Remove low-importance features
+
+### Advanced Enhancements
+1. **Ensemble methods**: Stack multiple models
+2. **Deep learning**: LSTM/GRU for temporal modeling
+3. **Data augmentation**: Generate synthetic training samples
+4. **Online learning**: Update model with new data
+
+---
+
 ## License
 
 This project is for the Zindi Barbados Traffic Challenge.
@@ -666,16 +1415,3 @@ This project is for the Zindi Barbados Traffic Challenge.
 ## Contributing
 
 Adjust polygon zones in `camera_configs/*.json` to match your specific camera angles and road layouts.
-
-
-# Process videos with automatic metrics generation
-python parallel_process.py --cameras 1 --workers 4
-
-# Resume and generate missing metrics
-python parallel_process.py --resume --cameras 1
-
-# Process with batch analysis at the end
-python parallel_process.py --cameras 1 --batch-analysis
-
-# Skip automatic metrics (faster, manual metrics later)
-python parallel_process.py --cameras 1 --no-metrics

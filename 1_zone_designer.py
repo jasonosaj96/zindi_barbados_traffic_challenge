@@ -4,8 +4,8 @@ Interactive Zone Designer for Roundabout Traffic Analysis
 
 This tool allows you to design detection zones with multiple directions:
 - North, South, East, West
-- Each direction has: entry, exit, queue, and circulating zones
-- Total of 16 zones for comprehensive roundabout analysis
+- Each direction has: entry, exit, and circulating zones
+- Total of 12 zones for comprehensive roundabout analysis
 """
 
 import cv2
@@ -29,20 +29,19 @@ class ZoneDesigner:
 
         # Define all zone types based on direction
         if direction:
-            # Only zones for the specified direction
+            # Only zones for the specified direction (3 zones: entry, exit, circulating)
             self.zone_types = [
                 f'{direction}_entry',
                 f'{direction}_exit',
-                f'{direction}_queue',
                 f'{direction}_circulating'
             ]
         else:
-            # All 16 zones (legacy mode)
+            # All 12 zones (3 per direction)
             self.zone_types = [
-                'north_entry', 'north_exit', 'north_queue', 'north_circulating',
-                'south_entry', 'south_exit', 'south_queue', 'south_circulating',
-                'east_entry', 'east_exit', 'east_queue', 'east_circulating',
-                'west_entry', 'west_exit', 'west_queue', 'west_circulating'
+                'north_entry', 'north_exit', 'north_circulating',
+                'south_entry', 'south_exit', 'south_circulating',
+                'east_entry', 'east_exit', 'east_circulating',
+                'west_entry', 'west_exit', 'west_circulating'
             ]
 
         # Color mapping for zone types
@@ -270,8 +269,7 @@ class ZoneDesigner:
         print("Zone Types:")
         print("  Entry (Green): Vehicles entering the approach")
         print("  Exit (Red): Vehicles exiting the roundabout")
-        print("  Queue (Yellow): Queue/waiting area before entry")
-        print("  Circulating (Orange): Vehicles circulating in the roundabout")
+        print("  Circulating (Blue): Vehicles circulating in the roundabout")
         print()
         if self.direction:
             print(f"Zones to define for {self.direction.upper()}:")
