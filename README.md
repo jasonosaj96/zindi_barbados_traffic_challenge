@@ -1286,6 +1286,171 @@ python src/processes/extract_vehicle_durations.py --dir video_processed_files/ -
 
 ---
 
+## Files Utilized by automated_pipeline.sh
+
+When you run `./automation_scripts/automated_pipeline.sh`, the following files are utilized:
+
+### 🔧 **Scripts Executed (in execution order)**
+
+#### Step 1: Prerequisites Check
+- **External Tools**: `python`, `gsutil`, `yolov8n.pt` (YOLO model - auto-downloaded if missing)
+
+#### Step 2: Download Videos
+1. **`src/processes/download_and_process.py`** - Downloads videos from Google Cloud Storage
+
+#### Step 3: Zone Configuration Validation
+2. **`camera_configs/camera_1_zones.json`** - Camera 1 (North) zone definitions
+3. **`camera_configs/camera_2_zones.json`** - Camera 2 (East) zone definitions
+4. **`camera_configs/camera_3_zones.json`** - Camera 3 (South) zone definitions
+5. **`camera_configs/camera_4_zones.json`** - Camera 4 (West) zone definitions
+
+   *(If zones are missing, optionally runs:)*
+6. **`1_setup_all_cameras.sh`** - Interactive zone setup script
+   - Which calls **`1_zone_designer.py`** for each camera
+
+#### Step 4: Video Processing
+7. **`src/processes/parallel_process.py`** - Main parallel processing orchestrator
+   - Which spawns **`src/classes/vehicle_counting.py`** as subprocess for each video
+     - Which imports **`src/classes/roundabout_metrics.py`** (optional, for advanced metrics)
+
+#### Step 5: Duration Extraction
+8. **`src/processes/extract_vehicle_durations.py`** - Extracts vehicle zone entry/exit times
+
+#### Step 6: CSV Consolidation
+9. **`src/processes/consolidate_to_csv.py`** - Consolidates all results into CSV format
+
+### 📦 **Input/Output Files**
+
+#### Input Files (Created/Used):
+- **Camera zone configs**: `camera_configs/camera_[1-4]_zones.json`
+- **Downloaded videos**: From GCS → `$OUTPUT_DIR/normanniles[1-4]/*.mp4`
+- **YOLO model**: `yolov8n.pt` (auto-downloaded on first run)
+
+#### Output Files Per Video (in `$OUTPUT_DIR/normanniles[1-4]/`):
+- **`video_name.counts.json`** - Complete vehicle tracking data including:
+  - Vehicle counts per zone
+  - Vehicle journeys with zone visits
+  - Dwell time statistics
+  - Zone statistics (throughput, speeds, sizes)
+  - Roundabout metrics (if available)
+
+- **`video_name.durations.json`** - Simplified vehicle zone duration data:
+  - Each vehicle ID with tracker info
+  - Entry/exit times for each zone visited
+  - Duration spent in each zone
+
+- **`video_name.annotated.mp4`** - Annotated video (if `--save-video` flag used):
+  - Zones drawn on frames
+  - Bounding boxes around vehicles
+  - Vehicle IDs and classes
+
+#### Consolidated Output Files (in project root):
+- **`vehicle_durations_all.json`** - All vehicle durations from all videos combined
+- **`consolidated_results.csv`** - Summary statistics for all videos (100+ columns)
+- **`processing_summary.json`** - Processing metadata and statistics
+
+### 📊 **Complete File Dependency Tree**
+
+```
+automated_pipeline.sh
+│
+├── Step 1: Prerequisites
+│   ├── python (required)
+│   ├── gsutil (required)
+│   └── yolov8n.pt (auto-downloaded)
+│
+├── Step 2: Download
+│   └── src/processes/download_and_process.py
+│       └── Downloads → $OUTPUT_DIR/normanniles[1-4]/*.mp4
+│
+├── Step 3: Zone Configuration
+│   ├── camera_configs/camera_1_zones.json
+│   ├── camera_configs/camera_2_zones.json
+│   ├── camera_configs/camera_3_zones.json
+│   ├── camera_configs/camera_4_zones.json
+│   └── (optional) 1_setup_all_cameras.sh
+│       └── 1_zone_designer.py
+│
+├── Step 4: Process Videos
+│   └── src/processes/parallel_process.py
+│       └── spawns → src/classes/vehicle_counting.py (per video)
+│           ├── uses → yolov8n.pt
+│           ├── uses → camera_configs/camera_[1-4]_zones.json
+│           ├── imports → src/classes/roundabout_metrics.py (optional)
+│           └── generates → *.counts.json
+│
+├── Step 5: Extract Durations
+│   └── src/processes/extract_vehicle_durations.py
+│       ├── reads → *.counts.json
+│       └── generates → *.durations.json + vehicle_durations_all.json
+│
+└── Step 6: Consolidate CSV
+    └── src/processes/consolidate_to_csv.py
+        ├── reads → *.counts.json
+        └── generates → consolidated_results.csv
+```
+
+### 🎯 **File Count Summary**
+
+| Category | Count | Files |
+|----------|-------|-------|
+| **Python Scripts** | 6 | download_and_process.py, parallel_process.py, vehicle_counting.py, extract_vehicle_durations.py, consolidate_to_csv.py, roundabout_metrics.py (optional) |
+| **Shell Scripts** | 2 | automated_pipeline.sh, 1_setup_all_cameras.sh (optional) |
+| **Zone Configs** | 4 | camera_1_zones.json, camera_2_zones.json, camera_3_zones.json, camera_4_zones.json |
+| **External Tools** | 3 | python, gsutil, yolov8n.pt |
+| **Output per Video** | 2-3 | *.counts.json, *.durations.json, *.annotated.mp4 (optional) |
+| **Consolidated Outputs** | 3 | vehicle_durations_all.json, consolidated_results.csv, processing_summary.json |
+
+### 💡 **Key Notes**
+
+1. **Modular Architecture**: Each step can be run independently
+2. **Subprocess Spawning**: `parallel_process.py` spawns `vehicle_counting.py` as subprocesses for parallel processing
+3. **Automatic Skip**: Videos with existing `.counts.json` files are automatically skipped
+4. **Optional Components**:
+   - Zone setup (`1_setup_all_cameras.sh`) only runs if configs are missing
+   - Roundabout metrics only if `roundabout_metrics.py` is available
+   - Annotated videos only if `--save-video` flag is used
+5. **Real-time Processing**: Pipeline processes videos in parallel using multiple CPU cores
+
+### 📁 **File Location Convention**
+
+```
+project_root/
+├── automation_scripts/
+│   └── automated_pipeline.sh              # Main pipeline script
+├── src/
+│   ├── processes/
+│   │   ├── download_and_process.py        # Step 2
+│   │   ├── parallel_process.py            # Step 4 orchestrator
+│   │   ├── extract_vehicle_durations.py   # Step 5
+│   │   └── consolidate_to_csv.py          # Step 6
+│   └── classes/
+│       ├── vehicle_counting.py            # Step 4 worker
+│       └── roundabout_metrics.py          # Optional
+├── camera_configs/
+│   ├── camera_1_zones.json                # Step 3
+│   ├── camera_2_zones.json                # Step 3
+│   ├── camera_3_zones.json                # Step 3
+│   └── camera_4_zones.json                # Step 3
+├── 1_setup_all_cameras.sh                 # Optional (Step 3)
+├── 1_zone_designer.py                     # Optional (Step 3)
+├── yolov8n.pt                             # Auto-downloaded
+├── video_processed_files/                 # Output directory
+│   ├── normanniles1/
+│   │   ├── video1.mp4
+│   │   ├── video1.counts.json
+│   │   ├── video1.durations.json
+│   │   └── video1.annotated.mp4
+│   ├── normanniles2/
+│   ├── normanniles3/
+│   └── normanniles4/
+├── vehicle_durations_all.json             # Consolidated output
+├── consolidated_results.csv               # Consolidated output
+└── processing_summary.json                # Consolidated output
+```
+
+---
+
 ## Troubleshooting
 
 ### Computer Vision Issues
@@ -1415,3 +1580,5 @@ This project is for the Zindi Barbados Traffic Challenge.
 ## Contributing
 
 Adjust polygon zones in `camera_configs/*.json` to match your specific camera angles and road layouts.
+
+
