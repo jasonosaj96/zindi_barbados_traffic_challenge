@@ -1,132 +1,128 @@
 {
   "zones": {
-    "south_entry": [
+    "enter": [
       [
         374,
-        181
+        182
       ],
       [
-        495,
-        186
+        384,
+        199
       ],
       [
-        545,
-        185
+        415,
+        220
       ],
       [
-        621,
-        209
+        564,
+        231
       ],
       [
-        688,
+        735,
+        246
+      ],
+      [
+        628,
+        219
+      ],
+      [
+        569,
+        198
+      ]
+    ],
+    "exit": [
+      [
+        296,
         229
       ],
       [
-        542,
-        227
+        172,
+        234
       ],
       [
-        416,
-        225
+        84,
+        238
       ],
       [
-        387,
-        202
-      ]
-    ],
-    "south_exit": [
-      [
-        292,
-        228
+        39,
+        240
       ],
       [
-        155,
-        235
+        181,
+        213
       ],
       [
-        78,
-        233
-      ],
-      [
-        210,
-        202
-      ],
-      [
-        251,
-        184
+        254,
+        187
       ],
       [
         352,
-        183
+        185
+      ],
+      [
+        334,
+        204
       ]
     ],
-    "south_circulating": [
+    "circulating_left": [
       [
-        14,
-        247
+        3,
+        316
       ],
       [
-        10,
-        310
+        5,
+        250
       ],
       [
-        277,
-        288
+        69,
+        242
       ],
       [
-        460,
-        281
+        81,
+        273
       ],
       [
-        704,
-        311
+        86,
+        295
       ],
       [
-        839,
-        340
+        47,
+        309
+      ]
+    ],
+    "circulating_right": [
+      [
+        955,
+        385
       ],
       [
-        950,
-        379
+        886,
+        357
       ],
       [
-        953,
-        302
+        895,
+        316
       ],
       [
-        726,
-        241
+        898,
+        287
       ],
       [
-        648,
-        233
-      ],
-      [
-        396,
-        229
-      ],
-      [
-        306,
-        225
-      ],
-      [
-        139,
-        240
-      ],
-      [
-        97,
-        240
+        955,
+        298
       ]
     ]
   },
   "zone_colors": {
-    "south_entry": "#00ff00",
-    "south_exit": "#ff0000",
-    "south_circulating": "#00a5ff"
+    "enter": "#00ff00",
+    "exit": "#ff0000",
+    "circulating_left": "#00a5ff",
+    "circulating_right": "#ff00ff"
   },
   "zone_descriptions": {
-    "south_entry": "south entry zone",
-    "south_exit": "south exit zone",
-    "south_circulating": "south circulating zone"
+    "enter": "enter zone",
+    "exit": "exit zone",
+    "circulating_left": "circulating_left zone",
+    "circulating_right": "circulating_right zone"
   }
 }

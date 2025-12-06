@@ -1,124 +1,108 @@
 {
   "zones": {
-    "west_entry": [
+    "enter": [
       [
-        655,
-        216
+        653,
+        218
       ],
       [
-        638,
-        232
+        640,
+        241
       ],
       [
-        647,
+        651,
         265
       ],
       [
-        794,
-        278
-      ],
-      [
-        875,
-        285
-      ],
-      [
-        746,
-        245
-      ],
-      [
-        728,
-        219
-      ]
-    ],
-    "west_exit": [
-      [
-        484,
+        742,
         267
       ],
       [
-        323,
-        277
+        808,
+        272
       ],
       [
-        194,
-        280
+        732,
+        245
       ],
       [
-        389,
-        250
-      ],
-      [
-        558,
-        219
-      ],
-      [
-        574,
-        236
+        724,
+        224
       ]
     ],
-    "west_circulating": [
+    "exit": [
       [
-        12,
-        378
+        491,
+        266
       ],
       [
-        16,
-        306
+        396,
+        273
       ],
       [
-        194,
-        292
+        341,
+        261
       ],
       [
-        547,
-        282
+        466,
+        236
       ],
       [
-        735,
-        281
+        568,
+        218
       ],
       [
-        925,
-        292
+        570,
+        242
+      ]
+    ],
+    "circulating_left": [
+      [
+        8,
+        381
+      ],
+      [
+        5,
+        308
+      ],
+      [
+        65,
+        294
+      ],
+      [
+        106,
+        359
+      ]
+    ],
+    "circulating_right": [
+      [
+        952,
+        361
       ],
       [
         955,
-        298
+        296
       ],
       [
-        952,
-        360
+        897,
+        284
       ],
       [
-        800,
-        332
-      ],
-      [
-        708,
-        321
-      ],
-      [
-        539,
-        314
-      ],
-      [
-        225,
-        340
-      ],
-      [
-        59,
-        359
+        865,
+        341
       ]
     ]
   },
   "zone_colors": {
-    "west_entry": "#00ff00",
-    "west_exit": "#ff0000",
-    "west_circulating": "#00a5ff"
+    "enter": "#00ff00",
+    "exit": "#ff0000",
+    "circulating_left": "#00a5ff",
+    "circulating_right": "#ff00ff"
   },
   "zone_descriptions": {
-    "west_entry": "west entry zone",
-    "west_exit": "west exit zone",
-    "west_circulating": "west circulating zone"
+    "enter": "enter zone",
+    "exit": "exit zone",
+    "circulating_left": "circulating_left zone",
+    "circulating_right": "circulating_right zone"
   }
 }

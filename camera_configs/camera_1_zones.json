@@ -1,152 +1,120 @@
 {
   "zones": {
-    "north_entry": [
+    "enter": [
       [
         429,
         212
       ],
       [
-        598,
-        215
+        437,
+        231
       ],
       [
-        637,
-        236
+        479,
+        253
       ],
       [
-        741,
-        262
+        561,
+        258
       ],
       [
-        469,
-        262
+        641,
+        257
       ],
       [
-        441,
-        235
+        685,
+        255
+      ],
+      [
+        619,
+        232
+      ],
+      [
+        605,
+        218
       ]
     ],
-    "north_exit": [
+    "exit": [
       [
-        341,
-        263
+        354,
+        259
       ],
       [
-        143,
-        268
+        263,
+        262
       ],
       [
-        86,
-        278
+        170,
+        261
       ],
       [
-        250,
-        246
+        254,
+        245
       ],
       [
-        308,
-        213
+        307,
+        218
+      ],
+      [
+        362,
+        216
       ],
       [
         408,
-        215
+        216
+      ],
+      [
+        390,
+        237
       ]
     ],
-    "north_circulating": [
+    "circulating_left": [
       [
-        955,
-        390
+        4,
+        343
       ],
       [
-        956,
-        315
+        4,
+        273
       ],
       [
-        748,
-        267
+        78,
+        266
       ],
       [
-        582,
-        269
+        99,
+        332
+      ]
+    ],
+    "circulating_right": [
+      [
+        954,
+        389
       ],
       [
-        473,
-        267
-      ],
-      [
-        446,
-        265
-      ],
-      [
-        360,
-        265
-      ],
-      [
-        148,
-        274
-      ],
-      [
-        17,
-        287
-      ],
-      [
-        29,
-        340
-      ],
-      [
-        225,
-        305
-      ],
-      [
-        388,
-        305
-      ],
-      [
-        424,
-        303
-      ],
-      [
-        445,
-        285
-      ],
-      [
-        476,
-        285
-      ],
-      [
-        478,
-        310
-      ],
-      [
-        569,
-        315
-      ],
-      [
-        577,
-        298
-      ],
-      [
-        607,
-        302
-      ],
-      [
-        651,
+        953,
         307
       ],
       [
-        656,
-        323
+        887,
+        297
+      ],
+      [
+        861,
+        363
       ]
     ]
   },
   "zone_colors": {
-    "north_entry": "#00ff00",
-    "north_exit": "#ff0000",
-    "north_circulating": "#00a5ff"
+    "enter": "#00ff00",
+    "exit": "#ff0000",
+    "circulating_left": "#00a5ff",
+    "circulating_right": "#ff00ff"
   },
   "zone_descriptions": {
-    "north_entry": "north entry zone",
-    "north_exit": "north exit zone",
-    "north_circulating": "north circulating zone"
+    "enter": "enter zone",
+    "exit": "exit zone",
+    "circulating_left": "circulating_left zone",
+    "circulating_right": "circulating_right zone"
   }
 }

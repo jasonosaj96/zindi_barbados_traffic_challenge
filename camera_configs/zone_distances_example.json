@@ -1,0 +1,23 @@
+{
+  "description": "Distances between zone pairs in meters for speed calculation",
+  "valid_journey_patterns": [
+    "circulating_left -> circulating_right",
+    "circulating_left -> exit",
+    "enter -> circulating_right"
+  ],
+  "circulating_left_to_circulating_right": 18.5,
+  "circulating_left_to_exit": 22.0,
+  "enter_to_circulating_right": 20.0,
+  "notes": [
+    "Measure distances between zone centroids or representative points",
+    "Use GPS coordinates or satellite imagery for accurate measurements",
+    "Distances should represent the typical path a vehicle takes through zones",
+    "All distances are in meters",
+    "Example values provided - replace with actual measurements for each camera"
+  ],
+  "measurement_instructions": {
+    "circulating_left_to_circulating_right": "Distance from center of left circulating zone to center of right circulating zone",
+    "circulating_left_to_exit": "Distance from center of left circulating zone to exit zone center",
+    "enter_to_circulating_right": "Distance from enter zone center to right circulating zone center"
+  }
+}
