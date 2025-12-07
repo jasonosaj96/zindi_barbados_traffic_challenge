@@ -1555,3 +1555,4 @@ This project is for the Zindi Barbados Traffic Challenge.
 Adjust polygon zones in `camera_configs/*.json` to match your specific camera angles and road layouts.
 
 
+df -h / | awk 'NR==1 || /G/'

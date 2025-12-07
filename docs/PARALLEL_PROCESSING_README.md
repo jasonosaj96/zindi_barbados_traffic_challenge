@@ -14,7 +14,7 @@ python parallel_process_dataset.py --workers 4
 python parallel_process_dataset.py --auto-workers
 
 # Test with first 10 timestamps
-python parallel_process_dataset.py --workers 4 --limit 10
+python parallel_process_dataset.py --workers 12 --limit 10
 ```
 
 ### Jupyter Notebook
