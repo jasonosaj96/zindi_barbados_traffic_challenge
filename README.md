@@ -213,6 +213,7 @@ See [VEHICLE_TRACKING.md](VEHICLE_TRACKING.md) for detailed documentation on tra
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
+source .venv/bin/activate && python parallel_process_test_dataset.py --workers 12
 # Install dependencies
 pip install -r requirements.txt
 ```

@@ -140,13 +140,12 @@ class TrainingDataIntegrator:
         window_start_dt = video_dt + timedelta(seconds=window_start_seconds)
         window_end_dt = video_dt + timedelta(seconds=window_end_seconds)
 
-        # Filter by camera direction and video timestamp match
-        # Match videos that belong to the same timestamp (15-min set)
+        # Filter by camera direction using time range overlap
+        # A record overlaps if its time range [datetime_start, datetime_end) intersects with [window_start_dt, window_end_dt)
         mask = (
             (self.train_df['camera_direction'] == camera_direction) &
-            (self.train_df['video_timestamp'] == video_timestamp) &
-            (self.train_df['datetime_start'] >= window_start_dt) &
-            (self.train_df['datetime_start'] < window_end_dt)
+            (self.train_df['datetime_start'] < window_end_dt) &
+            (self.train_df['datetime_end'] > window_start_dt)
         )
 
         window_records = self.train_df[mask]
@@ -178,14 +177,24 @@ class TrainingDataIntegrator:
             }
 
             entry_severities = window_records['congestion_enter_rating'].map(severity_order)
-            entry_label = window_records.loc[entry_severities.idxmax(), 'congestion_enter_rating'] if len(entry_severities) > 0 else None
+            if len(entry_severities) > 0:
+                max_idx = entry_severities.idxmax()
+                entry_label = window_records.loc[max_idx, 'congestion_enter_rating']
+            else:
+                entry_label = None
 
             exit_severities = window_records['congestion_exit_rating'].map(severity_order)
-            exit_label = window_records.loc[exit_severities.idxmax(), 'congestion_exit_rating'] if len(exit_severities) > 0 else None
+            if len(exit_severities) > 0:
+                max_idx = exit_severities.idxmax()
+                exit_label = window_records.loc[max_idx, 'congestion_exit_rating']
+            else:
+                exit_label = None
 
         elif aggregation == 'last':
-            entry_label = window_records.iloc[-1]['congestion_enter_rating']
-            exit_label = window_records.iloc[-1]['congestion_exit_rating']
+            # Sort by datetime_start and take the last one
+            window_records_sorted = window_records.sort_values('datetime_start')
+            entry_label = window_records_sorted.iloc[-1]['congestion_enter_rating']
+            exit_label = window_records_sorted.iloc[-1]['congestion_exit_rating']
 
         else:
             raise ValueError(f"Unknown aggregation: {aggregation}")
@@ -218,11 +227,12 @@ class TrainingDataIntegrator:
         Returns:
             Dict with entry and exit congestion labels
         """
-        # Filter training records for this camera and time window
+        # Filter training records using time range overlap
+        # A record overlaps if its time range [datetime_start, datetime_end) intersects with [window_start, window_end)
         mask = (
             (self.train_df['camera_direction'] == camera_direction) &
-            (self.train_df['datetime_start'] >= window_start) &
-            (self.train_df['datetime_start'] < window_end)
+            (self.train_df['datetime_start'] < window_end) &
+            (self.train_df['datetime_end'] > window_start)
         )
 
         window_records = self.train_df[mask]
@@ -256,15 +266,24 @@ class TrainingDataIntegrator:
             }
 
             entry_severities = window_records['congestion_enter_rating'].map(severity_order)
-            entry_label = window_records.loc[entry_severities.idxmax(), 'congestion_enter_rating'] if len(entry_severities) > 0 else None
+            if len(entry_severities) > 0:
+                max_idx = entry_severities.idxmax()
+                entry_label = window_records.loc[max_idx, 'congestion_enter_rating']
+            else:
+                entry_label = None
 
             exit_severities = window_records['congestion_exit_rating'].map(severity_order)
-            exit_label = window_records.loc[exit_severities.idxmax(), 'congestion_exit_rating'] if len(exit_severities) > 0 else None
+            if len(exit_severities) > 0:
+                max_idx = exit_severities.idxmax()
+                exit_label = window_records.loc[max_idx, 'congestion_exit_rating']
+            else:
+                exit_label = None
 
         elif aggregation == 'last':
-            # Last label in window
-            entry_label = window_records.iloc[-1]['congestion_enter_rating']
-            exit_label = window_records.iloc[-1]['congestion_exit_rating']
+            # Last label in window (sorted by datetime_start)
+            window_records_sorted = window_records.sort_values('datetime_start')
+            entry_label = window_records_sorted.iloc[-1]['congestion_enter_rating']
+            exit_label = window_records_sorted.iloc[-1]['congestion_exit_rating']
 
         else:
             raise ValueError(f"Unknown aggregation: {aggregation}")
